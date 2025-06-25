@@ -48,3 +48,59 @@ def userQuery(username, pageNum):
                     }}\n  
                   }}\n  
                 }}"""
+
+def animeQuery(id):
+    return f"""query {{
+        Media (id: {id}) {{
+            title {{
+                english
+                userPreferred
+            }}
+            meanScore
+            popularity
+            seasonYear
+            isAdult
+            description
+            studios {{
+                nodes {{
+                    name
+                    id
+                }}
+            }}
+            genres
+            tags {{
+                id
+                rank
+                name
+            }}
+            recommendations {{
+                nodes {{
+                    rating
+                    id
+                    mediaRecommendation {{
+                        title {{
+                            english
+                            userPreferred
+                        }}
+                        meanScore
+                        popularity
+                        seasonYear
+                        isAdult
+                        description
+                        studios {{
+                            nodes {{
+                                name
+                                id
+                            }}
+                        }}
+                        genres
+                        tags {{
+                            id
+                            rank
+                            name
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    }}"""
