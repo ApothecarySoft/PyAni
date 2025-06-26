@@ -11,16 +11,19 @@ def countdownTimer_s(seconds: int):
     while seconds > 0:
         print(seconds)
         time.sleep(1)
-        seconds = seconds - 1
+        seconds -= 1
 
 def fetchData(userName):
     transport = AIOHTTPTransport(url="https://graphql.anilist.co", ssl=True)
     client = Client(transport=transport, fetch_schema_from_transport=True)
 
-    query = gql(queries.userQuery(userName, "1"))
-
+    query = gql(queries.userQuery(userName, "1", "manga"))
     result = client.execute(query)
-    scores = result['Page']['users'][0]['statistics']['anime']['scores']
+    scores = result['Page']['users'][0]['statistics']['manga']['scores']
+
+    query = gql(queries.userQuery(userName, "1", "anime"))
+    result = client.execute(query)
+    scores += result['Page']['users'][0]['statistics']['anime']['scores']
 
     userList = []
 
