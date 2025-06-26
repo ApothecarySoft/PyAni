@@ -94,11 +94,17 @@ def calculateFirstPass(userList):
 
         for rec in media['recommendations']['nodes']:
             rating = rec['rating']
+
+            # ensure we don't count an opinion held by only one person (and don't count negative values)
             if rating < 1:
                 continue
+
             recMedia = rec['mediaRecommendation']
+
+            # ensure we do not try to process null values
             if not recMedia:
                 continue
+
             recPopularity = recMedia['popularity']
             recId = recMedia['id']
 
@@ -106,8 +112,10 @@ def calculateFirstPass(userList):
             if any(x['mediaId'] == recId for x in userList):
                 continue
 
-            normalizedRating = rating / (popularity + recPopularity)
-            scaledRating = score * normalizedRating
+            normalizedRating = rating / (popularity + recPopularity) # normalize the rating to mitigate popularity bias
+            scaledRating = score * normalizedRating # scale rating based on user's score
+
+            # I feel like there's gotta be a more elegant way to do this
             if recId not in recommendations:
                 recommendations[recId] = {
                     'recScore': scaledRating,
@@ -122,28 +130,10 @@ def calculateFirstPass(userList):
                     'recCount': oldRecommendation['recCount'] + 1
                 }
 
-    tagRatingsList = list(tagRatings.values())
-    tagRatingsList = [x for x in tagRatingsList if x['weightSum'] > 200]
-    finalTagRatings = []
-
-    for tagRating in tagRatingsList:
-        finalTagScore = tagRating['weightedScoreSum'] / tagRating['weightSum']
-        finalTagRatings.append({
-            'tag': tagRating['tag'],
-            'score': finalTagScore
-        })
-
+    finalTagRatings = [{'tag': x['tag'], 'score': x['weightedScoreSum'] / x['weightSum']} for x in list(tagRatings.values()) if x['weightSum'] > 200]
     finalTagRatings.sort(key= lambda x: -x['score'])
 
-    recList = list(recommendations.values())
-    tagRatingsList = [x for x in recList if x['recCount'] > 1]
-    finalRecList = []
-    for rec in tagRatingsList:
-        finalRecList.append({
-            'recScore': rec['recScore'] / rec['recCount'],
-            'recMedia': rec['recMedia']
-        })
-    # finalRecList.sort(key= lambda x: -x['recScore'])
+    finalRecList = [{'recScore': x['recScore'] / x['recCount'], 'recMedia': x['recMedia']} for x in list(recommendations.values()) if x['recCount'] > 1]
 
     return finalTagRatings, finalRecList
 
@@ -185,7 +175,6 @@ else:
 
 print(f"loaded {len(userList)} rated titles for {userName}")
 
-# keep a running list of tags and build a weighted % rating for each
 tags, recommendations = calculateFirstPass(userList)
 
 finalRecs = calculateSecondPass(tags, recommendations)
@@ -194,20 +183,8 @@ with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
     for tag in tags:
         print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
 
-# with open(f'{userName}.txt', 'w', encoding="utf-8") as f:
-#     for rec in recommendations:
-#         title = rec['recMedia']['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
-#         print(f"{title}: {int(rec['recScore'])}", file=f)
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
     for rec in finalRecs:
         title = rec['recMedia']['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
         print(f"{title}: {int(rec['recScore'])}", file=f)
-
-# keep a running list of recommendations and build a weighted score from each
-# omit any that were in the original list
-# normalize rank against popularity
-
-# do a second pass and weight all scores against the media's tags
-
-# sort by final scores and output to text file
