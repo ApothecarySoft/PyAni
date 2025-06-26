@@ -1,6 +1,7 @@
 # PyAni
 Generates a list of recommendations based on a public AniList profile.  
-Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags.
+Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags.  
+As of right now, anime and manga are grouped together.
 # Prerequisites
     pip install "gql[all]"
 if you don't have it already
