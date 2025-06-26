@@ -76,13 +76,13 @@ def animeQuery(id):
             recommendations {{
                 nodes {{
                     rating
-                    id
                     mediaRecommendation {{
                         title {{
                             english
                             userPreferred
                         }}
                         meanScore
+                        id
                         popularity
                         seasonYear
                         isAdult
