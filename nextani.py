@@ -36,10 +36,12 @@ def fetchData(userName):
                     errorCode = e.errors[0]['status']
                     if errorCode == 429:
                         print(f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data")
-                        countdownTimer_s(65)
-                    print(f"unhandled http error {errorCode}. trying again in 10 seconds")
-                    countdownTimer_s(10)
-            print(result)
+                        countdownTimer_s(61)
+                    else:
+                        print(f"unhandled http error {errorCode}. trying again in 10 seconds")
+                        countdownTimer_s(10)
+
+            print(f"Found {result['Media']['title']['userPreferred']}")
             userList.append(
                 {
                     'score': score,
@@ -73,4 +75,52 @@ if args.refresh or not os.path.exists(userFile):
 else:
     userList = loadDataFromFile(userFile)
 
-print(f"loaded user list of size {len(userList)}")
+print(f"loaded {len(userList)} rated titles for {userName}")
+
+# keep a running list of tags and build a weighted % rating for each
+tagRatings = {}
+recommendations = {}
+
+for ratedAni in userList:
+    score = ratedAni['score']
+    media = ratedAni['mediaMeta']['Media']
+    for tag in media['tags']:
+        tagRank = tag['rank']
+        tagId = tag['id']
+        if tagId not in tagRatings:
+            tagRatings[tagId] = {
+                'tag': tag,
+                'weightedScoreSum': score * tagRank,
+                'weightSum': tagRank
+            }
+        else:
+            oldTagRating = tagRatings[tagId]
+            tagRatings[tagId] = {
+                'tag': oldTagRating['tag'],
+                'weightedScoreSum': oldTagRating['weightedScoreSum'] + score * tagRank,
+                'weightSum': oldTagRating['weightSum'] + tagRank
+            }
+
+tagRatingsList = list(tagRatings.values())
+tagRatingsList = [x for x in tagRatingsList if x['weightSum'] > 100]
+finalTagRatings = []
+
+for tagRating in tagRatingsList:
+    finalTagScore = tagRating['weightedScoreSum'] / tagRating['weightSum']
+    finalTagRatings.append({
+        'name': tagRating['tag']['name'],
+        'score': finalTagScore
+    })
+
+finalTagRatings.sort(key= lambda x: -x['score'])
+
+for finalRating in finalTagRatings:
+    print(f"{finalRating['name']}: {finalRating['score']}%")
+
+# keep a running list of recommendations and build a weighted score from each
+# omit any that were in the original list
+# normalize rank against popularity
+
+# do a second pass and weight all scores against the media's tags
+
+# sort by final scores and output to text file
