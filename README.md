@@ -6,6 +6,7 @@ Currently uses Anilist's crowdsourced recommendations as the core source, also t
 if you don't have it already
 # Usage
 run nextani.py in python3 along with the username of a public Anilist profile  
+```python3 nextani.py [-r][-h] username```
 supports optional flags
 - -r to force refresh from the server
 - -h to display help
