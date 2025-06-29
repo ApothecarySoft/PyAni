@@ -1,5 +1,5 @@
 from gql import gql, Client
-from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.httpx import HTTPXTransport
 from gql.transport.exceptions import TransportQueryError
 import queries
 import time
@@ -13,50 +13,71 @@ def countdownTimer_s(seconds: int):
         time.sleep(1)
         seconds -= 1
 
-def fetchData(userName):
-    transport = AIOHTTPTransport(url="https://graphql.anilist.co", ssl=True)
+# def oldFetchData(userName):
+#     transport = AIOHTTPTransport(url="https://graphql.anilist.co", ssl=True)
+#     client = Client(transport=transport, fetch_schema_from_transport=True)
+
+#     query = gql(queries.userQuery(userName, "1", "manga"))
+#     result = client.execute(query)
+#     scores = result['Page']['users'][0]['statistics']['manga']['scores']
+
+#     query = gql(queries.userQuery(userName, "1", "anime"))
+#     result = client.execute(query)
+#     scores += result['Page']['users'][0]['statistics']['anime']['scores']
+
+#     userList = []
+
+#     for scoreBucket in scores:
+#         score = scoreBucket['score']
+#         for mediaId in scoreBucket['mediaIds']:
+#             query = gql(queries.animeQuery(mediaId))
+#             result = None
+#             while result == None:
+#                 try:
+#                     result = client.execute(query)
+#                 except TransportQueryError as e:
+#                     errorCode = e.errors[0]['status']
+#                     if errorCode == 429:
+#                         print(f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data")
+#                         countdownTimer_s(61)
+#                     else:
+#                         print(f"unhandled http error {errorCode}. trying again in 10 seconds")
+#                         countdownTimer_s(10)
+
+#             print(f"Found {result['Media']['title']['userPreferred']}")
+#             userList.append(
+#                 {
+#                     'score': score,
+#                     'mediaId': mediaId,
+#                     'mediaMeta': result
+#                 }
+#             )
+
+#     with open(f"{userName}.json", "w") as file:
+#         json.dump(userList, file)
+
+#     return userList
+
+def fetchDataForType(client, type: str):
+    query = gql(queries.userListQuery(userName, type))
+    result = client.execute(query)
+    lists = result['MediaListCollection']['lists']
+    # TODO add support for extra chunks
+    entries = [y for x in lists for y in x['entries']]
+    return entries
+
+def fetchDataForUser(userName):
+    transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=True)
+    entries = fetchDataForType(client, "ANIME")
+    entries += fetchDataForType(client, "MANGA")
 
-    query = gql(queries.userQuery(userName, "1", "manga"))
-    result = client.execute(query)
-    scores = result['Page']['users'][0]['statistics']['manga']['scores']
+    #populate userlist. use the same schema as before
 
-    query = gql(queries.userQuery(userName, "1", "anime"))
-    result = client.execute(query)
-    scores += result['Page']['users'][0]['statistics']['anime']['scores']
+    with open(f"{userName}-list.json", "w") as file:
+        json.dump(entries, file)
 
-    userList = []
-
-    for scoreBucket in scores:
-        score = scoreBucket['score']
-        for mediaId in scoreBucket['mediaIds']:
-            query = gql(queries.animeQuery(mediaId))
-            result = None
-            while result == None:
-                try:
-                    result = client.execute(query)
-                except TransportQueryError as e:
-                    errorCode = e.errors[0]['status']
-                    if errorCode == 429:
-                        print(f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data")
-                        countdownTimer_s(61)
-                    else:
-                        print(f"unhandled http error {errorCode}. trying again in 10 seconds")
-                        countdownTimer_s(10)
-
-            print(f"Found {result['Media']['title']['userPreferred']}")
-            userList.append(
-                {
-                    'score': score,
-                    'mediaId': mediaId,
-                    'mediaMeta': result
-                }
-            )
-
-    with open(f"{userName}.json", "w") as file:
-        json.dump(userList, file)
-
-    return userList
+    return entries
 
 
 def loadDataFromFile(userFile):
@@ -65,14 +86,31 @@ def loadDataFromFile(userFile):
 
     return userList
 
+def calculateMeanScore(userList):
+    scoresTotal = 0
+    scoresCount = 0
 
-def calculateFirstPass(userList):
+    for ratedAni in userList:
+        score = ratedAni['score']
+        if score <= 0:
+            continue
+        scoresTotal += score
+        scoresCount += 1
+
+    if scoresCount <= 0:
+        return 50
+
+    return scoresTotal / scoresCount
+
+def calculateFirstPass(userList, meanScore):
     tagRatings = {}
     recommendations = {}
 
     for ratedAni in userList:
         score = ratedAni['score']
-        media = ratedAni['mediaMeta']['Media']
+        if score <= 0:
+            score = meanScore
+        media = ratedAni['media']
         popularity = media['popularity']
 
         for tag in media['tags']:
@@ -109,7 +147,7 @@ def calculateFirstPass(userList):
             recId = recMedia['id']
 
             # ensure that we don't recommend things that the user has already rated
-            if any(x['mediaId'] == recId for x in userList):
+            if any(x['media']['id'] == recId for x in userList):
                 continue
 
             normalizedRating = rating / (popularity + recPopularity) # normalize the rating to mitigate popularity bias
@@ -165,17 +203,21 @@ parser.add_argument("-r", "--refresh", help = "Force refresh user data from anil
 args = parser.parse_args()
 
 userName = args.userName
-userFile = f"{userName}.json"
+userFile = f"{userName}-list.json"
 userList = []
 
 if args.refresh or not os.path.exists(userFile):
-    userList = fetchData(userName)
+    userList = fetchDataForUser(userName)
 else:
     userList = loadDataFromFile(userFile)
 
-print(f"loaded {len(userList)} rated titles for {userName}")
+print(f"loaded {len(userList)} titles for {userName}")
 
-tags, recommendations = calculateFirstPass(userList)
+meanScore = calculateMeanScore(userList)
+
+print(f"{userName} gives a mean score of {meanScore}")
+
+tags, recommendations = calculateFirstPass(userList, meanScore)
 
 finalRecs = calculateSecondPass(tags, recommendations)
 
@@ -186,5 +228,8 @@ with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
     for rec in finalRecs:
-        title = rec['recMedia']['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
-        print(f"{title}: {int(rec['recScore'])}", file=f)
+        media = rec['recMedia']
+        title = media['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
+        format = media['format']
+        year = media['seasonYear']
+        print(f"{title} ({format}, {year}): {int(rec['recScore'])}", file=f)

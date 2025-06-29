@@ -1,36 +1,84 @@
-userListQuery = """query {\n
-                    Page(page: 1) {\n
-                    mediaList(userName: \"9tailedfaux\", type: ANIME, sort: SCORE_DESC, status: COMPLETED) {\n
-                      media {\n
-                        title {\n
-                          userPreferred\n
-                        }\n
-                        status\n
-                        format\n
-                        seasonYear\n
-                        episodes\n
-                        popularity\n
-                        score\n
-                        recommendations {\n
-                          edges {\n
-                            node {\n
-                              rating\n
-                              mediaRecommendation {\n
-                                id\n
-                                title {\n
-                                  userPreferred\n
-                                }\n
-                              }\n
-                            }\n
-                          }\n
-                        }\n
-                      }\n
-                    }\n
-                    pageInfo {\n
-                      hasNextPage\n
-                    }\n
-                  }\n
-                }"""
+def userListQuery(userName, type):
+  return f"""query MediaListCollection {{
+    MediaListCollection (userName: "{userName}", type: {type}, status_not: PLANNING) {{
+      hasNextChunk
+      lists {{
+        name
+        entries {{
+          score(format: POINT_100)
+          media {{
+            id
+            title {{
+              english
+              userPreferred
+            }}
+            meanScore
+            popularity
+            seasonYear
+            isAdult
+            description
+            studios (isMain: true) {{
+              nodes {{
+                name
+                id
+              }}
+            }}
+            genres
+            tags {{
+              id
+              rank
+              name
+            }}
+            recommendations {{
+              nodes {{
+                rating
+                mediaRecommendation {{
+                  id
+                  title {{
+                    english
+                    userPreferred
+                  }}
+                  meanScore
+                  format
+                  id
+                  popularity
+                  seasonYear
+                  isAdult
+                  description
+                  studios (isMain: true) {{
+                    nodes {{
+                      name
+                      id
+                    }}
+                  }}
+                  genres
+                  tags {{
+                    id
+                    rank
+                    name
+                  }}
+                }}
+              }}
+            }}
+          }}
+        }}
+      }}
+    }}
+  }}"""
+
+def userMeanScoresQuery(username):
+  return f"""query User {{
+  User (name: "{username}") {{
+    statistics {{
+      anime {{
+        meanScore
+      }}
+      manga {{
+        meanScore
+      }}
+    }}
+  }}
+}}"""
 
 def userQuery(username, pageNum, mediaType):
     return f"""query {{\n  
