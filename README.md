@@ -13,6 +13,8 @@ python3 nextani.py [-r][-h] username
 supports optional flags
 - -r to force refresh from the server
 - -h to display help
+- -t to take tags into account
+- -s to take studios into account (note: this will push manga to the bottom of the list)
 # AniList is mean
 they rate limit their API pretty strictly so fetching data from the server can take 5-10 minutes  
 data is cached locally after that, though, so subsequent runs are quicker unless you force refresh
