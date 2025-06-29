@@ -13,51 +13,6 @@ def countdownTimer_s(seconds: int):
         time.sleep(1)
         seconds -= 1
 
-# def oldFetchData(userName):
-#     transport = AIOHTTPTransport(url="https://graphql.anilist.co", ssl=True)
-#     client = Client(transport=transport, fetch_schema_from_transport=True)
-
-#     query = gql(queries.userQuery(userName, "1", "manga"))
-#     result = client.execute(query)
-#     scores = result['Page']['users'][0]['statistics']['manga']['scores']
-
-#     query = gql(queries.userQuery(userName, "1", "anime"))
-#     result = client.execute(query)
-#     scores += result['Page']['users'][0]['statistics']['anime']['scores']
-
-#     userList = []
-
-#     for scoreBucket in scores:
-#         score = scoreBucket['score']
-#         for mediaId in scoreBucket['mediaIds']:
-#             query = gql(queries.animeQuery(mediaId))
-#             result = None
-#             while result == None:
-#                 try:
-#                     result = client.execute(query)
-#                 except TransportQueryError as e:
-#                     errorCode = e.errors[0]['status']
-#                     if errorCode == 429:
-#                         print(f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data")
-#                         countdownTimer_s(61)
-#                     else:
-#                         print(f"unhandled http error {errorCode}. trying again in 10 seconds")
-#                         countdownTimer_s(10)
-
-#             print(f"Found {result['Media']['title']['userPreferred']}")
-#             userList.append(
-#                 {
-#                     'score': score,
-#                     'mediaId': mediaId,
-#                     'mediaMeta': result
-#                 }
-#             )
-
-#     with open(f"{userName}.json", "w") as file:
-#         json.dump(userList, file)
-
-#     return userList
-
 def fetchDataForType(client, type: str):
     query = gql(queries.userListQuery(userName, type))
     result = client.execute(query)
@@ -78,7 +33,6 @@ def fetchDataForUser(userName):
         json.dump(entries, file)
 
     return entries
-
 
 def loadDataFromFile(userFile):
     with open(userFile, 'r') as file:
@@ -104,6 +58,7 @@ def calculateMeanScore(userList):
 
 def calculateFirstPass(userList, meanScore):
     tagRatings = {}
+    studioRatings = {}
     recommendations = {}
 
     for ratedAni in userList:
@@ -128,6 +83,22 @@ def calculateFirstPass(userList, meanScore):
                     'tag': oldTagRating['tag'],
                     'weightedScoreSum': oldTagRating['weightedScoreSum'] + score * tagRank,
                     'weightSum': oldTagRating['weightSum'] + tagRank
+                }
+
+        for studio in media['studios']['nodes']:
+            studioId = studio['id']
+            if studioId not in studioRatings:
+                studioRatings[studioId] = {
+                    'studio': studio,
+                    'scoreSum': score,
+                    'studioOccurrence': 1
+                }
+            else:
+                oldStudioRating = studioRatings[studioId]
+                studioRatings[studioId] = {
+                    'studio': oldStudioRating['studio'],
+                    'scoreSum': oldStudioRating['scoreSum'] + score,
+                    'studioOccurrence': oldStudioRating['studioOccurrence'] + 1
                 }
 
         for rec in media['recommendations']['nodes']:
@@ -171,26 +142,43 @@ def calculateFirstPass(userList, meanScore):
     finalTagRatings = [{'tag': x['tag'], 'score': x['weightedScoreSum'] / x['weightSum']} for x in list(tagRatings.values()) if x['weightSum'] > 200]
     finalTagRatings.sort(key= lambda x: -x['score'])
 
+    finalStudioRatings = [{'studio': x['studio'], 'score': x['scoreSum'] / x['studioOccurrence']} for x in list(studioRatings.values()) if x['studioOccurrence'] > 2]
+    finalStudioRatings.sort(key= lambda x: -x['score'])
+
     finalRecList = [{'recScore': x['recScore'] / x['recCount'], 'recMedia': x['recMedia']} for x in list(recommendations.values()) if x['recCount'] > 1]
 
-    return finalTagRatings, finalRecList
+    return finalTagRatings, finalStudioRatings, finalRecList
 
 
-def calculateSecondPass(tagRatings, recs):
+def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
     finalRecs = []
     for rec in recs:
         tagTotal = 0
         tagCount = 0
         tags = rec['recMedia']['tags']
         tagRatings_d = {x['tag']['id']: x for x in tagRatings}
-        for tag in tags:
-            if tag['id'] not in tagRatings_d:
-                continue
-            tagTotal += tagRatings_d[tag['id']]['score'] * tag['rank']
-            tagCount += 1
+        if useTags:
+            for tag in tags:
+                if tag['id'] not in tagRatings_d:
+                    continue
+                tagTotal += tagRatings_d[tag['id']]['score'] * tag['rank']
+                tagCount += 1
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
+
+        studioTotal = 0
+        studioCount = 0
+        studios = rec['recMedia']['studios']['nodes']
+        studioRatings_d = {x['studio']['id']: x for x in studioRatings}
+        if useStudios:
+            for studio in studios:
+                if studio['id'] not in studioRatings_d:
+                    continue
+                studioTotal += studioRatings_d[studio['id']]['score']
+                studioCount += 1
+        studioScore = studioTotal / studioCount if studioCount > 0 else 0
+        
         finalRecs.append({
-            'recScore': rec['recScore'] * tagScore,
+            'recScore': rec['recScore'] * (tagScore + 1) * (studioScore + 1),
             'recMedia': rec['recMedia']
         })
     finalRecs.sort(key=lambda x: -x['recScore'])
@@ -200,6 +188,8 @@ def calculateSecondPass(tagRatings, recs):
 parser = argparse.ArgumentParser()
 parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
 parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while due to rate limiting. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
+parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm", action="store_true")
+parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
 
 userName = args.userName
@@ -217,13 +207,17 @@ meanScore = calculateMeanScore(userList)
 
 print(f"{userName} gives a mean score of {meanScore}")
 
-tags, recommendations = calculateFirstPass(userList, meanScore)
+tags, studios, recommendations = calculateFirstPass(userList, meanScore)
 
-finalRecs = calculateSecondPass(tags, recommendations)
+finalRecs = calculateSecondPass(tags, studios, recommendations, args.tags, args.studios)
 
 with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
     for tag in tags:
         print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
+
+with open(f'{userName}-studios.txt', 'w', encoding="utf-8") as f:
+    for studio in studios:
+        print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
 
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
@@ -232,4 +226,5 @@ with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
         title = media['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
         format = media['format']
         year = media['startDate']['year']
-        print(f"{title} ({format}, {year}): {int(rec['recScore'])}", file=f)
+        score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
+        print(f"{title} ({format}, {year}): {score}", file=f)
