@@ -231,5 +231,5 @@ with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
         media = rec['recMedia']
         title = media['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
         format = media['format']
-        year = media['seasonYear']
+        year = media['startDate']['year']
         print(f"{title} ({format}, {year}): {int(rec['recScore'])}", file=f)

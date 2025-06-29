@@ -43,6 +43,9 @@ def userListQuery(userName, type):
                   id
                   popularity
                   seasonYear
+                  startDate {{
+                    year
+                  }}
                   isAdult
                   description
                   studios (isMain: true) {{
