@@ -6,6 +6,7 @@ import time
 import json
 import argparse
 import os
+import math
 
 def countdownTimer_s(seconds: int):
     while seconds > 0:
@@ -221,10 +222,13 @@ with open(f'{userName}-studios.txt', 'w', encoding="utf-8") as f:
 
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
+    logBase = 2
+    topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)
     for rec in finalRecs:
         media = rec['recMedia']
-        title = media['title']['english'] if rec['recMedia']['title']['english'] else rec['recMedia']['title']['userPreferred']
-        format = media['format']
+        title = media['title']['english'] if media['title']['english'] else media['title']['userPreferred']
+        mediaFormat = media['format']
         year = media['startDate']['year']
-        score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
-        print(f"{title} ({format}, {year}): {score}", file=f)
+        #score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
+        score = round(math.log(rec['recScore'] + 1, logBase) / topScore * 100, 2)
+        print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
