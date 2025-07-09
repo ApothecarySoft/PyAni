@@ -188,7 +188,7 @@ def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
-parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while due to rate limiting. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
+parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
 parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm", action="store_true")
 parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
