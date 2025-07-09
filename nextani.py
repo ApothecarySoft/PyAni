@@ -28,8 +28,6 @@ def fetchDataForUser(userName):
     entries = fetchDataForType(client, "ANIME")
     entries += fetchDataForType(client, "MANGA")
 
-    #populate userlist. use the same schema as before
-
     with open(f"{userName}-list.json", "w") as file:
         json.dump(entries, file)
 
