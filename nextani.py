@@ -63,8 +63,12 @@ def calculateFirstPass(userList, meanScore):
 
     for ratedAni in userList:
         score = ratedAni['score']
+        status = ratedAni['status'] if 'status' in ratedAni.keys() else ""
         if score <= 0:
-            score = meanScore
+            if status == "DROPPED":
+                score = 25
+            else:
+                score = meanScore
         media = ratedAni['media']
         popularity = media['popularity']
 

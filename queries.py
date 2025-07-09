@@ -6,6 +6,7 @@ def userListQuery(userName, type):
         name
         entries {{
           score(format: POINT_100)
+          status
           media {{
             id
             title {{
@@ -35,7 +36,7 @@ def userListQuery(userName, type):
               rank
               name
             }}
-            recommendations {{
+            recommendations (sort: RATING_DESC) {{
               nodes {{
                 rating
                 mediaRecommendation {{
