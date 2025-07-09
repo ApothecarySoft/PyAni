@@ -58,6 +58,7 @@ def calculateMeanScore(userList):
 def calculateFirstPass(userList, meanScore):
     tagRatings = {}
     studioRatings = {}
+    staffRatings = {}
     recommendations = {}
 
     for ratedAni in userList:
@@ -98,6 +99,22 @@ def calculateFirstPass(userList, meanScore):
                     'studio': oldStudioRating['studio'],
                     'scoreSum': oldStudioRating['scoreSum'] + score,
                     'studioOccurrence': oldStudioRating['studioOccurrence'] + 1
+                }
+
+        for staff in media['staff']['nodes']:
+            staffId = staff['id']
+            if staffId not in staffRatings:
+                staffRatings[staffId] = {
+                    'staff': staff,
+                    'scoreSum': score,
+                    'staffOccurrence': 1
+                }
+            else:
+                oldStaffRating = staffRatings[staffId]
+                staffRatings[staffId] = {
+                    'staff': oldStaffRating['staff'],
+                    'scoreSum': oldStaffRating['scoreSum'] + score,
+                    'staffOccurrence': oldStaffRating['staffOccurrence'] + 1
                 }
 
         for rec in media['recommendations']['nodes']:
@@ -146,10 +163,10 @@ def calculateFirstPass(userList, meanScore):
 
     finalRecList = [{'recScore': x['recScore'] / x['recCount'], 'recMedia': x['recMedia']} for x in list(recommendations.values()) if x['recCount'] > 1]
 
-    return finalTagRatings, finalStudioRatings, finalRecList
+    return finalTagRatings, finalStudioRatings, finalRecList, staffRatings
 
 
-def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
+def calculateSecondPass(tagRatings, studioRatings, recs, staff, useTags, useStudios):
     finalRecs = []
     for rec in recs:
         tagTotal = 0
@@ -175,6 +192,18 @@ def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
                 studioTotal += studioRatings_d[studio['id']]['score']
                 studioCount += 1
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
+
+        staffTotal = 0
+        staffCount = 0
+        staffs = rec['recMedia']['staff']['edges']
+        staffRatings_d = {x['staff']['id']: x for x in staffRatings}
+        if usestaffs:
+            for staff in staffs:
+                if staff['id'] not in staffRatings_d:
+                    continue
+                staffTotal += staffRatings_d[staff['id']]['score']
+                staffCount += 1
+        staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
         finalRecs.append({
             'recScore': rec['recScore'] * (tagScore + 1) * (studioScore + 1),
@@ -206,9 +235,9 @@ meanScore = calculateMeanScore(userList)
 
 print(f"{userName} gives a mean score of {meanScore}")
 
-tags, studios, recommendations = calculateFirstPass(userList, meanScore)
+tags, studios, recommendations, staff = calculateFirstPass(userList, meanScore)
 
-finalRecs = calculateSecondPass(tags, studios, recommendations, args.tags, args.studios)
+finalRecs = calculateSecondPass(tags, studios, recommendations, staff, args.tags, args.studios)
 
 with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
     for tag in tags:

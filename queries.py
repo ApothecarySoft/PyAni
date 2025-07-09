@@ -12,11 +12,17 @@ def userListQuery(userName, type):
               english
               userPreferred
             }}
+            staff (perPage: 10, sort: RELEVANCE) {{
+              edges {{
+                node {{
+                  name {{
+                    userPreferred
+                  }}
+                }}
+              }}
+            }}
             meanScore
             popularity
-            seasonYear
-            isAdult
-            description
             studios (isMain: true) {{
               nodes {{
                 name
@@ -38,16 +44,22 @@ def userListQuery(userName, type):
                     english
                     userPreferred
                   }}
+                  staff (perPage: 10, sort: RELEVANCE) {{
+                    edges {{
+                      node {{
+                        name {{
+                          userPreferred
+                        }}
+                      }}
+                    }}
+                  }}
                   meanScore
                   format
                   id
                   popularity
-                  seasonYear
                   startDate {{
                     year
                   }}
-                  isAdult
-                  description
                   studios (isMain: true) {{
                     nodes {{
                       name
