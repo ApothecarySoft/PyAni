@@ -14,13 +14,37 @@ def countdownTimer_s(seconds: int):
         time.sleep(1)
         seconds -= 1
 
-def fetchDataForType(client, type: str):
-    query = gql(queries.userListQuery(userName, type))
-    result = client.execute(query)
+def fetchDataForChunk(client, type: str, chunk: int):
+    print(f"fetching for chunk #{chunk}")
+    query = gql(queries.userListQuery(userName, type, chunk))
+    result = None
+    while result == None:
+        try:
+            result = client.execute(query)
+        except TransportQueryError as e:
+            errorCode = e.errors[0]['status']
+            if errorCode == 429:
+                print(f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data")
+                countdownTimer_s(65)
+            else:
+                print(f"unhandled http error {errorCode}. trying again in 10 seconds")
+                countdownTimer_s(10)
     lists = result['MediaListCollection']['lists']
-    # TODO add support for extra chunks
-    entries = [y for x in lists for y in x['entries']]
-    return entries
+    # print(lists)
+    entries = [listEntries for currentList in lists for listEntries in currentList['entries'] if not currentList['isCustomList']]
+    return entries, result['MediaListCollection']['hasNextChunk']
+
+def fetchDataForType(client, type: str):
+    print(f"fetching data for type {type}")
+    chunkNum = 0
+    hasNextChunk = True;
+    entries = []
+    while hasNextChunk:
+        chunkNum += 1
+        newEntries, hasNextChunk = fetchDataForChunk(client, type, chunkNum)
+        entries += newEntries
+
+    return entries        
 
 def fetchDataForUser(userName):
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
@@ -58,6 +82,7 @@ def calculateMeanScore(userList):
 def calculateFirstPass(userList, meanScore):
     tagRatings = {}
     studioRatings = {}
+    staffRatings = {}
     recommendations = {}
 
     for ratedAni in userList:
@@ -104,6 +129,22 @@ def calculateFirstPass(userList, meanScore):
                     'studioOccurrence': oldStudioRating['studioOccurrence'] + 1
                 }
 
+        for staff in media['staff']['nodes']:
+            staffId = staff['id']
+            if staffId not in staffRatings:
+                staffRatings[staffId] = {
+                    'staff': staff,
+                    'scoreSum': score,
+                    'staffOccurrence': 1
+                }
+            else:
+                oldStaffRating = staffRatings[staffId]
+                staffRatings[staffId] = {
+                    'staff': oldStaffRating['staff'],
+                    'scoreSum': oldStaffRating['scoreSum'] + score,
+                    'staffOccurrence': oldStaffRating['staffOccurrence'] + 1
+                }
+
         for rec in media['recommendations']['nodes']:
             rating = rec['rating']
 
@@ -148,12 +189,15 @@ def calculateFirstPass(userList, meanScore):
     finalStudioRatings = [{'studio': x['studio'], 'score': x['scoreSum'] / x['studioOccurrence']} for x in list(studioRatings.values()) if x['studioOccurrence'] > 2]
     finalStudioRatings.sort(key= lambda x: -x['score'])
 
+    finalStaffRatings = [{'staff': x['staff'], 'score': x['scoreSum'] / x['staffOccurrence']} for x in list(staffRatings.values()) if x['staffOccurrence'] >= 4]
+    finalStaffRatings.sort(key= lambda x: -x['score'])
+
     finalRecList = [{'recScore': x['recScore'] / x['recCount'], 'recMedia': x['recMedia']} for x in list(recommendations.values()) if x['recCount'] > 1]
 
-    return finalTagRatings, finalStudioRatings, finalRecList
+    return finalTagRatings, finalStudioRatings, finalRecList, finalStaffRatings
 
 
-def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
+def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff):
     finalRecs = []
     for rec in recs:
         tagTotal = 0
@@ -179,6 +223,18 @@ def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
                 studioTotal += studioRatings_d[studio['id']]['score']
                 studioCount += 1
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
+
+        staffTotal = 0
+        staffCount = 0
+        staffs = rec['recMedia']['staff']['nodes']
+        staffRatings_d = {x['staff']['id']: x for x in staffRatings}
+        if useStaff:
+            for staff in staffs:
+                if staff['id'] not in staffRatings_d:
+                    continue
+                staffTotal += staffRatings_d[staff['id']]['score']
+                staffCount += 1
+        staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
         finalRecs.append({
             'recScore': rec['recScore'] * (tagScore + 1) * (studioScore + 1),
@@ -191,8 +247,9 @@ def calculateSecondPass(tagRatings, studioRatings, recs, useTags, useStudios):
 parser = argparse.ArgumentParser()
 parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
 parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
-parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm", action="store_true")
+parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm. Note this will naturally push manga to the bottom of the list", action="store_true")
 parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
+parser.add_argument("-f", "--staff", help = "Use common staff in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
 
 userName = args.userName
@@ -210,9 +267,9 @@ meanScore = calculateMeanScore(userList)
 
 print(f"{userName} gives a mean score of {meanScore}")
 
-tags, studios, recommendations = calculateFirstPass(userList, meanScore)
+tags, studios, recommendations, staffs = calculateFirstPass(userList, meanScore)
 
-finalRecs = calculateSecondPass(tags, studios, recommendations, args.tags, args.studios)
+finalRecs = calculateSecondPass(tags, studios, recommendations, staffs, args.tags, args.studios, args.staff)
 
 with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
     for tag in tags:
@@ -222,9 +279,12 @@ with open(f'{userName}-studios.txt', 'w', encoding="utf-8") as f:
     for studio in studios:
         print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
 
+with open(f'{userName}-staff.txt', 'w', encoding="utf-8") as f:
+    for staff in staffs:
+        print(f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f)
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
-    logBase = 2
+    logBase = math.e
     topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)
     for rec in finalRecs:
         media = rec['recMedia']

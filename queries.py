@@ -1,9 +1,10 @@
-def userListQuery(userName, type):
+def userListQuery(userName, type, chunk):
   return f"""query MediaListCollection {{
-    MediaListCollection (userName: "{userName}", type: {type}, status_not: PLANNING) {{
+    MediaListCollection (userName: "{userName}", type: {type}, status_not: PLANNING, chunk: {chunk}, perChunk: 100) {{
       hasNextChunk
       lists {{
         name
+        isCustomList
         entries {{
           score(format: POINT_100)
           status
@@ -13,11 +14,16 @@ def userListQuery(userName, type):
               english
               userPreferred
             }}
+            staff (page: 1, perPage: 20, sort: FAVOURITES_DESC) {{
+              nodes {{
+                id
+                name {{
+                  userPreferred
+                }}
+              }}
+            }}
             meanScore
             popularity
-            seasonYear
-            isAdult
-            description
             studios (isMain: true) {{
               nodes {{
                 name
@@ -39,16 +45,21 @@ def userListQuery(userName, type):
                     english
                     userPreferred
                   }}
+                  staff (page: 1, perPage: 20, sort: FAVOURITES_DESC) {{
+                    nodes {{
+                      id
+                      name {{
+                        userPreferred
+                      }}
+                    }}
+                  }}
                   meanScore
                   format
                   id
                   popularity
-                  seasonYear
                   startDate {{
                     year
                   }}
-                  isAdult
-                  description
                   studios (isMain: true) {{
                     nodes {{
                       name
