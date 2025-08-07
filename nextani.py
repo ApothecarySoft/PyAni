@@ -169,7 +169,7 @@ def calculateInitial(userList, meanScore):
 
             normalizedRating = rating / (popularity + recPopularity) * score # normalize the rating to mitigate popularity bias and factor in user score
             if normalizedRating > 0.005:
-                origins.setdefault(recMedia['id'], {}).setdefault('because you watched', {})[media['id']] = media
+                origins.setdefault(recMedia['id'], {}).setdefault('if you liked', {})[media['id']] = media
             scaledRating = normalizedRating * mediaMeanScore # scale rating based on mean score
 
             # I feel like there's gotta be a more elegant way to do this
@@ -216,7 +216,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                 tagTotal += tagRatings_d[tagId]['score'] * tag['rank']
                 tagCount += 1
                 if useTags and tagRatings_d[tagId]['score'] > 75:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('tags', {})[tagId] = tag
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('tags that might interest you', {})[tagId] = tag
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
 
         studioTotal = 0
@@ -231,7 +231,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                 studioTotal += studioRatings_d[studioId]['score']
                 studioCount += 1
                 if useStudios and studioRatings_d[studioId]['score'] > 75:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('studios', {})[studioId] = studio
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('studios that might interest you', {})[studioId] = studio
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
 
         staffTotal = 0
@@ -246,7 +246,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                 staffTotal += staffRatings_d[staffId]['score']
                 staffCount += 1
                 if useStaff and staffRatings_d[staffId]['score'] > 75:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('staff', {})[staffId] = staff
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('staff that might interest you', {})[staffId] = staff
         staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
         finalRecs.append({
@@ -259,7 +259,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
 
 def generateOriginStringForType(media, origins):
     string = ""
-    angles = ['because you watched', 'tags', 'studios', 'staff']
+    angles = ['if you liked', 'tags that might interest you', 'studios that might interest you', 'staff that might interest you']
     for angle in angles:
         if media['id'] not in origins:
             continue
@@ -320,13 +320,13 @@ with open(f'{userName}-staff.txt', 'w', encoding="utf-8") as f:
 
 with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
     logBase = math.e
-    topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)
+    topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)**2
     for rec in finalRecs:
         media = rec['recMedia']
         title = getEnglishTitleOrUserPreferred(media['title'])
         mediaFormat = media['format']
         year = media['startDate']['year']
         #score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
-        score = round(math.log(rec['recScore'] + 1, logBase) / topScore * 100, 2)
+        score = round((math.log(rec['recScore'] + 1, logBase)**2) / topScore * 100, 2)
         print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
         print(generateOriginStringForType(media, finalOrigins), file=f)
