@@ -79,11 +79,12 @@ def calculateMeanScore(userList):
 
     return scoresTotal / scoresCount
 
-def calculateFirstPass(userList, meanScore):
+def calculateInitial(userList, meanScore):
     tagRatings = {}
     studioRatings = {}
     staffRatings = {}
     recommendations = {}
+    origins = {}
 
     for ratedAni in userList:
         score = ratedAni['score']
@@ -94,6 +95,7 @@ def calculateFirstPass(userList, meanScore):
             else:
                 score = meanScore
         media = ratedAni['media']
+        mediaMeanScore = media['meanScore']
         popularity = media['popularity']
 
         for tag in media['tags']:
@@ -165,8 +167,10 @@ def calculateFirstPass(userList, meanScore):
             if any(x['media']['id'] == recId for x in userList):
                 continue
 
-            normalizedRating = rating / (popularity + recPopularity) # normalize the rating to mitigate popularity bias
-            scaledRating = score * normalizedRating # scale rating based on user's score
+            normalizedRating = rating / (popularity + recPopularity) * score # normalize the rating to mitigate popularity bias and factor in user score
+            if normalizedRating > 0.005:
+                origins.setdefault(recMedia['id'], {}).setdefault('because you watched', {})[media['id']] = media
+            scaledRating = normalizedRating * mediaMeanScore # scale rating based on mean score
 
             # I feel like there's gotta be a more elegant way to do this
             if recId not in recommendations:
@@ -194,10 +198,10 @@ def calculateFirstPass(userList, meanScore):
 
     finalRecList = [{'recScore': x['recScore'] / x['recCount'], 'recMedia': x['recMedia']} for x in list(recommendations.values()) if x['recCount'] > 1]
 
-    return finalTagRatings, finalStudioRatings, finalRecList, finalStaffRatings
+    return finalTagRatings, finalStudioRatings, finalRecList, finalStaffRatings, origins
 
 
-def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff):
+def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff, recOrigins):
     finalRecs = []
     for rec in recs:
         tagTotal = 0
@@ -206,10 +210,13 @@ def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, 
         tagRatings_d = {x['tag']['id']: x for x in tagRatings}
         if useTags:
             for tag in tags:
-                if tag['id'] not in tagRatings_d:
+                tagId = tag['id']
+                if tagId not in tagRatings_d:
                     continue
-                tagTotal += tagRatings_d[tag['id']]['score'] * tag['rank']
+                tagTotal += tagRatings_d[tagId]['score'] * tag['rank']
                 tagCount += 1
+                if useTags and tagRatings_d[tagId]['score'] > 75:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('tags', {})[tagId] = tag
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
 
         studioTotal = 0
@@ -218,10 +225,13 @@ def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, 
         studioRatings_d = {x['studio']['id']: x for x in studioRatings}
         if useStudios:
             for studio in studios:
-                if studio['id'] not in studioRatings_d:
+                studioId = studio['id']
+                if studioId not in studioRatings_d:
                     continue
-                studioTotal += studioRatings_d[studio['id']]['score']
+                studioTotal += studioRatings_d[studioId]['score']
                 studioCount += 1
+                if useStudios and studioRatings_d[studioId]['score'] > 75:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('studios', {})[studioId] = studio
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
 
         staffTotal = 0
@@ -230,10 +240,13 @@ def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, 
         staffRatings_d = {x['staff']['id']: x for x in staffRatings}
         if useStaff:
             for staff in staffs:
-                if staff['id'] not in staffRatings_d:
+                staffId = staff['id']
+                if staffId not in staffRatings_d:
                     continue
-                staffTotal += staffRatings_d[staff['id']]['score']
+                staffTotal += staffRatings_d[staffId]['score']
                 staffCount += 1
+                if useStaff and staffRatings_d[staffId]['score'] > 75:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('staff', {})[staffId] = staff
         staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
         finalRecs.append({
@@ -241,8 +254,30 @@ def calculateSecondPass(tagRatings, studioRatings, recs, staffRatings, useTags, 
             'recMedia': rec['recMedia']
         })
     finalRecs.sort(key=lambda x: -x['recScore'])
-    return finalRecs
 
+    return finalRecs, recOrigins
+
+def generateOriginStringForType(media, origins):
+    string = ""
+    angles = ['because you watched', 'tags', 'studios', 'staff']
+    for angle in angles:
+        if media['id'] not in origins:
+            continue
+        if angle not in origins[media['id']]:
+            continue
+        string += f"\t{angle}: "
+        for origin in origins[media['id']][angle].values():
+            name = ""
+            if 'title' in origin:
+                name = getEnglishTitleOrUserPreferred(origin['title'])
+            else:
+                name = origin['name'] if isinstance(origin['name'], str) else origin['name']['userPreferred']
+            string += f"{name}, "
+        string = string[:-2] + "\n"
+    return string
+
+def getEnglishTitleOrUserPreferred(title):
+    return title['english'] if title['english'] else title['userPreferred']
 
 parser = argparse.ArgumentParser()
 parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
@@ -267,9 +302,9 @@ meanScore = calculateMeanScore(userList)
 
 print(f"{userName} gives a mean score of {meanScore}")
 
-tags, studios, recommendations, staffs = calculateFirstPass(userList, meanScore)
+tags, studios, recommendations, staffs, origins = calculateInitial(userList, meanScore)
 
-finalRecs = calculateSecondPass(tags, studios, recommendations, staffs, args.tags, args.studios, args.staff)
+finalRecs, finalOrigins = calculateBiases(tags, studios, recommendations, staffs, args.tags, args.studios, args.staff, origins)
 
 with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
     for tag in tags:
@@ -288,9 +323,10 @@ with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
     topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)
     for rec in finalRecs:
         media = rec['recMedia']
-        title = media['title']['english'] if media['title']['english'] else media['title']['userPreferred']
+        title = getEnglishTitleOrUserPreferred(media['title'])
         mediaFormat = media['format']
         year = media['startDate']['year']
         #score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
         score = round(math.log(rec['recScore'] + 1, logBase) / topScore * 100, 2)
         print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
+        print(generateOriginStringForType(media, finalOrigins), file=f)
