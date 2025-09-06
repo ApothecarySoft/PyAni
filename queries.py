@@ -1,6 +1,6 @@
 def userListQuery(userName, type, chunk):
   return f"""query MediaListCollection {{
-    MediaListCollection (userName: "{userName}", type: {type}, status_not: PLANNING, chunk: {chunk}, perChunk: 100) {{
+    MediaListCollection (userName: "{userName}", type: {type}, status_not: PLANNING, chunk: {chunk}, perChunk: 60) {{
       hasNextChunk
       lists {{
         name
