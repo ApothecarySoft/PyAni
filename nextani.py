@@ -95,7 +95,7 @@ def calculateInitial(userList, meanScore):
             else:
                 score = meanScore
         media = ratedAni['media']
-        mediaMeanScore = media['meanScore']
+        mediaMeanScore = media['meanScore'] or 1
         popularity = media['popularity']
 
         for tag in media['tags']:
