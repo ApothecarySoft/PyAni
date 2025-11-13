@@ -14,7 +14,7 @@ def countdownTimer_s(seconds: int):
         time.sleep(1)
         seconds -= 1
 
-def fetchDataForChunk(client, type: str, chunk: int):
+def fetchDataForChunk(client, type: str, chunk: int, userName):
     print(f"fetching for chunk #{chunk}")
     query = gql(queries.userListQuery(userName, type, chunk))
     result = None
@@ -34,22 +34,23 @@ def fetchDataForChunk(client, type: str, chunk: int):
     entries = [listEntries for currentList in lists for listEntries in currentList['entries'] if not currentList['isCustomList']]
     return entries, result['MediaListCollection']['hasNextChunk']
 
-def fetchDataForType(client, type: str):
+def fetchDataForType(client, type: str, userName):
     print(f"fetching data for type {type}")
     chunkNum = 0
     hasNextChunk = True;
     entries = []
     while hasNextChunk:
         chunkNum += 1
-        newEntries, hasNextChunk = fetchDataForChunk(client, type, chunkNum)
+        newEntries, hasNextChunk = fetchDataForChunk(client, type, chunkNum, userName=userName)
         entries += newEntries
 
     return entries        
 
 def fetchDataForUser(userName):
+    print(f"fetching data for user {userName}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=True)
-    entries = fetchDataForType(client, "ANIME")
+    entries = fetchDataForType(client, "ANIME", userName=userName)
     entries += fetchDataForType(client, "MANGA")
 
     with open(f"{userName}-list.json", "w") as file:
@@ -201,7 +202,7 @@ def calculateInitial(userList, meanScore):
     return finalTagRatings, finalStudioRatings, finalRecList, finalStaffRatings, origins
 
 
-def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff, recOrigins):
+def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff, recOrigins, userMean):
     finalRecs = []
     for rec in recs:
         tagTotal = 0
@@ -215,7 +216,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 tagTotal += tagRatings_d[tagId]['score'] * tag['rank']
                 tagCount += 1
-                if useTags and tagRatings_d[tagId]['score'] > 75:
+                if useTags and tagRatings_d[tagId]['score'] > userMean:
                     recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('tags that might interest you', {})[tagId] = tag
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
 
@@ -230,7 +231,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 studioTotal += studioRatings_d[studioId]['score']
                 studioCount += 1
-                if useStudios and studioRatings_d[studioId]['score'] > 75:
+                if useStudios and studioRatings_d[studioId]['score'] > userMean:
                     recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('studios that might interest you', {})[studioId] = studio
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
 
@@ -245,7 +246,7 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 staffTotal += staffRatings_d[staffId]['score']
                 staffCount += 1
-                if useStaff and staffRatings_d[staffId]['score'] > 75:
+                if useStaff and staffRatings_d[staffId]['score'] > userMean:
                     recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('staff that might interest you', {})[staffId] = staff
         staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
@@ -257,9 +258,9 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
 
     return finalRecs, recOrigins
 
-def generateOriginStringForType(media, origins):
-    string = ""
-    angles = ['if you liked', 'tags that might interest you', 'studios that might interest you', 'staff that might interest you']
+def generateOriginStringForType(media, origins, userName=None):
+    string = f"\t{userName}\n" if userName else ""
+    angles = [f'if you liked', f'tags that might interest you', f'studios that might interest you', f'staff that might interest you']
     for angle in angles:
         if media['id'] not in origins:
             continue
@@ -279,54 +280,100 @@ def generateOriginStringForType(media, origins):
 def getEnglishTitleOrUserPreferred(title):
     return title['english'] if title['english'] else title['userPreferred']
 
+def writeRecList(finalRecs, origins1, userName="you", userName2=None, origins2=None):
+    print(len(origins1))
+    print(len(origins2) if origins2 else origins2)
+    fullName = userName
+    if userName2:
+        fullName = f"{userName}+{userName2}"
+    with open(f'{fullName}-recs.txt', 'w', encoding="utf-8") as f:
+        for rec in finalRecs:
+            media = rec['recMedia']
+            title = getEnglishTitleOrUserPreferred(media['title'])
+            mediaFormat = media['format']
+            year = media['startDate']['year']
+            score = rec['recScore']
+            print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
+            print(generateOriginStringForType(media=media, origins=origins1, userName=userName), file=f)
+            if origins2:
+                print(generateOriginStringForType(media=media, origins=origins2, userName=userName2), file=f)
+
+def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
+    if not userName:
+        return None, None
+
+    userFile = f"{userName}-list.json"
+    userList = []
+
+    if refresh or not os.path.exists(userFile):
+        userList = fetchDataForUser(userName)
+    else:
+        userList = loadDataFromFile(userFile)
+
+    print(f"loaded {len(userList)} titles for {userName}")
+
+    meanScore = calculateMeanScore(userList)
+
+    print(f"{userName} gives a mean score of {meanScore}")
+
+    tags, studios, recommendations, staffs, origins = calculateInitial(userList, meanScore)
+
+    finalRecs, finalOrigins = calculateBiases(tags, studios, recommendations, staffs, useTags, useStudios, useStaff, origins, userMean=meanScore)
+
+    logBase = math.e
+    topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)**2
+
+    for rec in finalRecs:
+        rec['recScore'] = round((math.log(rec['recScore'] + 1, logBase)**2) / topScore * 100, 2)
+
+    with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
+        for tag in tags:
+            print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
+
+    with open(f'{userName}-studios.txt', 'w', encoding="utf-8") as f:
+        for studio in studios:
+            print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
+
+    with open(f'{userName}-staff.txt', 'w', encoding="utf-8") as f:
+        for staff in staffs:
+            print(f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f)
+
+    writeRecList(userName=userName, finalRecs=finalRecs, origins1=finalOrigins)
+
+    return finalRecs, finalOrigins
+
+def generateJointList(userData1, userData2):
+    userDict1 = {rec['recMedia']['id']: rec for rec in userData1['list']}
+    userDict2 = {rec['recMedia']['id']: rec for rec in userData2['list']}
+    jointList = [value for (key, value) in (userDict1 | userDict2).items() if key in set(userDict1.keys()).intersection(set(userDict2.keys()))]
+
+    for rec in jointList:
+        rec['recScore'] = (userDict1[rec['recMedia']['id']]['recScore'] + userDict2[rec['recMedia']['id']]['recScore']) / 2
+
+    jointList.sort(key=lambda x: -x['recScore'])
+
+    writeRecList(userName=userData1['userName'], userName2=userData2['userName'], finalRecs=jointList, origins1=userData1['origins'], origins2=userData2['origins'])
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
+parser.add_argument("userName2", help="Anilist username of a secondary user if you wish to generate a joint list", nargs='?')
 parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
 parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm. Note this will naturally push manga to the bottom of the list", action="store_true")
 parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
 parser.add_argument("-f", "--staff", help = "Use common staff in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
 
-userName = args.userName
-userFile = f"{userName}-list.json"
-userList = []
+list1, origins1 = getRecommendationList(args.userName, args.tags, args.studios, args.staff, args.refresh)
+list2, origins2 = getRecommendationList(args.userName2, args.tags, args.studios, args.staff, args.refresh)
 
-if args.refresh or not os.path.exists(userFile):
-    userList = fetchDataForUser(userName)
-else:
-    userList = loadDataFromFile(userFile)
-
-print(f"loaded {len(userList)} titles for {userName}")
-
-meanScore = calculateMeanScore(userList)
-
-print(f"{userName} gives a mean score of {meanScore}")
-
-tags, studios, recommendations, staffs, origins = calculateInitial(userList, meanScore)
-
-finalRecs, finalOrigins = calculateBiases(tags, studios, recommendations, staffs, args.tags, args.studios, args.staff, origins)
-
-with open(f'{userName}-tags.txt', 'w', encoding="utf-8") as f:
-    for tag in tags:
-        print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
-
-with open(f'{userName}-studios.txt', 'w', encoding="utf-8") as f:
-    for studio in studios:
-        print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
-
-with open(f'{userName}-staff.txt', 'w', encoding="utf-8") as f:
-    for staff in staffs:
-        print(f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f)
-
-with open(f'{userName}-recs.txt', 'w', encoding="utf-8") as f:
-    logBase = math.e
-    topScore = math.log(finalRecs[0]['recScore'] + 1, logBase)**2
-    for rec in finalRecs:
-        media = rec['recMedia']
-        title = getEnglishTitleOrUserPreferred(media['title'])
-        mediaFormat = media['format']
-        year = media['startDate']['year']
-        #score = int(rec['recScore']) if rec['recScore'] > 1 else rec['recScore']
-        score = round((math.log(rec['recScore'] + 1, logBase)**2) / topScore * 100, 2)
-        print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
-        print(generateOriginStringForType(media, finalOrigins), file=f)
+if args.userName2:
+    generateJointList({
+        'userName': args.userName,
+        'list': list1,
+        'origins': origins1
+    }, {
+        'userName': args.userName2,
+        'list': list2,
+        'origins': origins2
+    })
