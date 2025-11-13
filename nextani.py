@@ -41,7 +41,7 @@ def fetchDataForType(client, type: str, userName):
     entries = []
     while hasNextChunk:
         chunkNum += 1
-        newEntries, hasNextChunk = fetchDataForChunk(client, type, chunkNum, userName=userName)
+        newEntries, hasNextChunk = fetchDataForChunk(client=client, type=type, chunk=chunkNum, userName=userName)
         entries += newEntries
 
     return entries        
@@ -51,7 +51,7 @@ def fetchDataForUser(userName):
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=True)
     entries = fetchDataForType(client, "ANIME", userName=userName)
-    entries += fetchDataForType(client, "MANGA")
+    entries += fetchDataForType(client, "MANGA", userName=userName)
 
     with open(f"{userName}-list.json", "w") as file:
         json.dump(entries, file)
@@ -280,13 +280,14 @@ def generateOriginStringForType(media, origins, userName=None):
 def getEnglishTitleOrUserPreferred(title):
     return title['english'] if title['english'] else title['userPreferred']
 
-def writeRecList(finalRecs, origins1, userName="you", userName2=None, origins2=None):
-    print(len(origins1))
-    print(len(origins2) if origins2 else origins2)
-    fullName = userName
-    if userName2:
-        fullName = f"{userName}+{userName2}"
-    with open(f'{fullName}-recs.txt', 'w', encoding="utf-8") as f:
+def writeRecList(finalRecs, origins, userNames):
+    fullName = ""
+    if len(userNames) > 1:
+        for userName in userNames:
+            fullName += f"{userName}-"
+    else:
+        fullName = f"{userNames[0]}-"
+    with open(f'{fullName}recs.txt', 'w', encoding="utf-8") as f:
         for rec in finalRecs:
             media = rec['recMedia']
             title = getEnglishTitleOrUserPreferred(media['title'])
@@ -294,9 +295,8 @@ def writeRecList(finalRecs, origins1, userName="you", userName2=None, origins2=N
             year = media['startDate']['year']
             score = rec['recScore']
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
-            print(generateOriginStringForType(media=media, origins=origins1, userName=userName), file=f)
-            if origins2:
-                print(generateOriginStringForType(media=media, origins=origins2, userName=userName2), file=f)
+            for i in range(len(userNames)):
+                print(generateOriginStringForType(media=media, origins=origins[i], userName=userNames[i]), file=f)
 
 def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
     if not userName:
@@ -338,42 +338,42 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
         for staff in staffs:
             print(f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f)
 
-    writeRecList(userName=userName, finalRecs=finalRecs, origins1=finalOrigins)
+    writeRecList(userNames=[userName], finalRecs=finalRecs, origins=[finalOrigins])
 
     return finalRecs, finalOrigins
 
-def generateJointList(userData1, userData2):
-    userDict1 = {rec['recMedia']['id']: rec for rec in userData1['list']}
-    userDict2 = {rec['recMedia']['id']: rec for rec in userData2['list']}
-    jointList = [value for (key, value) in (userDict1 | userDict2).items() if key in set(userDict1.keys()).intersection(set(userDict2.keys()))]
+def generateJointList(userData):
+    userDicts = [{rec['recMedia']['id']: rec for rec in d['list']} for d in userData]
+    dictsUnion = {}
+    for d in userDicts:
+        dictsUnion = dictsUnion | d
 
+    jointList = [value for (key, value) in dictsUnion.items()]
     for rec in jointList:
-        rec['recScore'] = (userDict1[rec['recMedia']['id']]['recScore'] + userDict2[rec['recMedia']['id']]['recScore']) / 2
+        score = 0
+        for d in userDicts:
+            score += d.get(rec['recMedia']['id'], {'recScore': 0})['recScore']
+        rec['recScore'] = score / len(userDicts)
 
     jointList.sort(key=lambda x: -x['recScore'])
 
-    writeRecList(userName=userData1['userName'], userName2=userData2['userName'], finalRecs=jointList, origins1=userData1['origins'], origins2=userData2['origins'])
+    writeRecList(userNames=[d['userName'] for d in userData], finalRecs=jointList, origins=[d['origins'] for d in userData])
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("userName", help="Anilist username of the user you wish to generate recommendations for")
-parser.add_argument("userName2", help="Anilist username of a secondary user if you wish to generate a joint list", nargs='?')
+parser.add_argument("userNames", help="Anilist username of the user you wish to generate recommendations for", nargs='+')
 parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
 parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm. Note this will naturally push manga to the bottom of the list", action="store_true")
 parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
 parser.add_argument("-f", "--staff", help = "Use common staff in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
 
-list1, origins1 = getRecommendationList(args.userName, args.tags, args.studios, args.staff, args.refresh)
-list2, origins2 = getRecommendationList(args.userName2, args.tags, args.studios, args.staff, args.refresh)
+userData = [{'userName': n, 'list': [], 'origins': {}} for n in args.userNames]
 
-if args.userName2:
-    generateJointList({
-        'userName': args.userName,
-        'list': list1,
-        'origins': origins1
-    }, {
-        'userName': args.userName2,
-        'list': list2,
-        'origins': origins2
-    })
+for index, userName in enumerate(args.userNames):
+    tempList, tempOrigins = getRecommendationList(userName=userName, useTags=args.tags, useStudios=args.studios, useStaff=args.staff, refresh=args.refresh)
+    userData[index]['list'] = tempList
+    userData[index]['origins'] = tempOrigins
+
+if len(args.userNames) > 1:
+    generateJointList(userData=userData)
