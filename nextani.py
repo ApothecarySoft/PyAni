@@ -378,11 +378,7 @@ def generateJointList(userData, rewatch):
                 score += d.get(mediaId, {'recScore': 0})['recScore']
         rec['recScore'] = score / len(userDicts)
 
-    jointList.sort(key=lambda x: -x['recScore'])
-
-    userStatusDicts=[{a['media']['id']: a['status'] for a in b} for b in [d['userList'] for d in userData]]
-
-    finalRecs=[r for r in jointList if rewatch or not all(u.get(r['recMedia']['id'], "") in {'COMPLETED', 'REPEATING'} for u in userStatusDicts)]
+    finalRecs=[r for r in sorted(jointList, key=lambda x: -x['recScore']) if rewatch or not all(u.get(r['recMedia']['id'], "") in {'COMPLETED', 'REPEATING'} for u in [{a['media']['id']: a['status'] for a in b} for b in [d['userList'] for d in userData]])]
 
     writeRecList(userNames=[d['userName'] for d in userData], finalRecs=finalRecs, origins=origins)
 
