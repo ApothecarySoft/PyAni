@@ -7,6 +7,7 @@ import json
 import argparse
 import os
 import math
+from pprint import pprint
 
 def countdownTimer_s(seconds: int):
     while seconds > 0:
@@ -14,9 +15,9 @@ def countdownTimer_s(seconds: int):
         time.sleep(1)
         seconds -= 1
 
-def fetchDataForChunk(client, type: str, chunk: int, userName):
+def fetchDataForChunk(client, mediaType: str, chunk: int, userName):
     print(f"fetching for chunk #{chunk}")
-    query = gql(queries.userListQuery(userName, type, chunk))
+    query = gql(queries.userListQuery(userName=userName, mediaType=mediaType, chunk=chunk))
     result = None
     while result == None:
         try:
@@ -34,14 +35,14 @@ def fetchDataForChunk(client, type: str, chunk: int, userName):
     entries = [listEntries for currentList in lists for listEntries in currentList['entries'] if not currentList['isCustomList']]
     return entries, result['MediaListCollection']['hasNextChunk']
 
-def fetchDataForType(client, type: str, userName):
-    print(f"fetching data for type {type}")
+def fetchDataForType(client, mediaType: str, userName):
+    print(f"fetching data for type {mediaType}")
     chunkNum = 0
     hasNextChunk = True;
     entries = []
     while hasNextChunk:
         chunkNum += 1
-        newEntries, hasNextChunk = fetchDataForChunk(client=client, type=type, chunk=chunkNum, userName=userName)
+        newEntries, hasNextChunk = fetchDataForChunk(client=client, mediaType=mediaType, chunk=chunkNum, userName=userName)
         entries += newEntries
 
     return entries        
@@ -50,8 +51,8 @@ def fetchDataForUser(userName):
     print(f"fetching data for user {userName}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=True)
-    entries = fetchDataForType(client, "ANIME", userName=userName)
-    entries += fetchDataForType(client, "MANGA", userName=userName)
+    entries = fetchDataForType(client=client, mediaType="ANIME", userName=userName)
+    entries += fetchDataForType(client=client, mediaType="MANGA", userName=userName)
 
     with open(f"{userName}-list.json", "w") as file:
         json.dump(entries, file)
@@ -81,6 +82,8 @@ def calculateMeanScore(userList):
     return scoresTotal / scoresCount
 
 def calculateInitial(userList, meanScore):
+    global angles
+    angleKeys = list(angles.keys())
     tagRatings = {}
     studioRatings = {}
     staffRatings = {}
@@ -164,13 +167,17 @@ def calculateInitial(userList, meanScore):
             recPopularity = recMedia['popularity']
             recId = recMedia['id']
 
-            # ensure that we don't recommend things that the user has already rated
-            if any(x['media']['id'] == recId for x in userList):
-                continue
+            # ensure that we don't recommend things that the user already has on their list
+            # if any(x['media']['id'] == recId for x in userList):
+            #     continue
+
+            userMatch = next((x for x in userList if x['media']['id'] == recId), None)
+            if userMatch:
+                origins.setdefault(recMedia['id'], {}).setdefault(angleKeys[0], {})[media['id']] = userMatch['score']
 
             normalizedRating = rating / (popularity + recPopularity) * score # normalize the rating to mitigate popularity bias and factor in user score
             if normalizedRating > 0.005:
-                origins.setdefault(recMedia['id'], {}).setdefault('if you liked', {})[media['id']] = media
+                origins.setdefault(recMedia['id'], {}).setdefault(angleKeys[1], {})[media['id']] = media
             scaledRating = normalizedRating * mediaMeanScore # scale rating based on mean score
 
             # I feel like there's gotta be a more elegant way to do this
@@ -203,6 +210,8 @@ def calculateInitial(userList, meanScore):
 
 
 def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useStudios, useStaff, recOrigins, userMean):
+    global angles
+    angleKeys = list(angles.keys())
     finalRecs = []
     for rec in recs:
         tagTotal = 0
@@ -216,8 +225,8 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 tagTotal += tagRatings_d[tagId]['score'] * tag['rank']
                 tagCount += 1
-                if useTags and tagRatings_d[tagId]['score'] > userMean:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('tags that might interest you', {})[tagId] = tag
+                if useTags and tagRatings_d[tagId]['score'] > userMean - 3:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault(angleKeys[2], {})[tagId] = tag
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
 
         studioTotal = 0
@@ -231,8 +240,8 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 studioTotal += studioRatings_d[studioId]['score']
                 studioCount += 1
-                if useStudios and studioRatings_d[studioId]['score'] > userMean:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('studios that might interest you', {})[studioId] = studio
+                if useStudios and studioRatings_d[studioId]['score'] > userMean - 3:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault(angleKeys[3], {})[studioId] = studio
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
 
         staffTotal = 0
@@ -246,8 +255,8 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
                     continue
                 staffTotal += staffRatings_d[staffId]['score']
                 staffCount += 1
-                if useStaff and staffRatings_d[staffId]['score'] > userMean:
-                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault('staff that might interest you', {})[staffId] = staff
+                if useStaff and staffRatings_d[staffId]['score'] > userMean - 3:
+                    recOrigins.setdefault(rec['recMedia']['id'], {}).setdefault(angleKeys[4], {})[staffId] = staff
         staffScore = staffTotal / staffCount if staffCount > 0 else 0
         
         finalRecs.append({
@@ -260,19 +269,26 @@ def calculateBiases(tagRatings, studioRatings, recs, staffRatings, useTags, useS
 
 def generateOriginStringForType(media, origins, userName=None):
     string = f"\t{userName}\n" if userName else ""
-    angles = [f'if you liked', f'tags that might interest you', f'studios that might interest you', f'staff that might interest you']
-    for angle in angles:
+    global angles
+    for (angle, text) in angles.items():
         if media['id'] not in origins:
             continue
         if angle not in origins[media['id']]:
             continue
-        string += f"\t{angle}: "
+
+        if angle == 'userRating':
+            string += f"\tYou {text} {list(origins[media['id']][angle].values())[0]}%\n"
+            continue
+
+        string += f"\t{text} "
         for origin in origins[media['id']][angle].values():
             name = ""
             if 'title' in origin:
                 name = getEnglishTitleOrUserPreferred(origin['title'])
-            else:
+            elif 'name' in origin:
                 name = origin['name'] if isinstance(origin['name'], str) else origin['name']['userPreferred']
+            elif type(origin) == str:
+                name = origin
             string += f"{name}, "
         string = string[:-2] + "\n"
     return string
@@ -289,6 +305,7 @@ def writeRecList(finalRecs, origins, userNames):
         fullName = f"{userNames[0]}-"
     with open(f'{fullName}recs.txt', 'w', encoding="utf-8") as f:
         for rec in finalRecs:
+
             media = rec['recMedia']
             title = getEnglishTitleOrUserPreferred(media['title'])
             mediaFormat = media['format']
@@ -340,40 +357,59 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
 
     writeRecList(userNames=[userName], finalRecs=finalRecs, origins=[finalOrigins])
 
-    return finalRecs, finalOrigins
+    return finalRecs, finalOrigins, userList
 
-def generateJointList(userData):
+def generateJointList(userData, rewatch):
     userDicts = [{rec['recMedia']['id']: rec for rec in d['list']} for d in userData]
     dictsUnion = {}
     for d in userDicts:
         dictsUnion = dictsUnion | d
 
     jointList = [value for (key, value) in dictsUnion.items()]
+    origins=[d['origins'] for d in userData]
     for rec in jointList:
         score = 0
-        for d in userDicts:
-            score += d.get(rec['recMedia']['id'], {'recScore': 0})['recScore']
+        for i, d in enumerate(userDicts):
+            mediaId = rec['recMedia']['id']
+            if 'userRating' in origins[i].get(mediaId, {}):
+                tempScore = list(origins[i][mediaId]['userRating'].values())[0]
+                score += tempScore
+            else:
+                score += d.get(mediaId, {'recScore': 0})['recScore']
         rec['recScore'] = score / len(userDicts)
 
     jointList.sort(key=lambda x: -x['recScore'])
 
-    writeRecList(userNames=[d['userName'] for d in userData], finalRecs=jointList, origins=[d['origins'] for d in userData])
+    userStatusDicts=[{a['media']['id']: a['status'] for a in b} for b in [d['userList'] for d in userData]]
+
+    finalRecs=[r for r in jointList if rewatch or not all(u.get(r['recMedia']['id'], "") in {'COMPLETED', 'REPEATING'} for u in userStatusDicts)]
+
+    writeRecList(userNames=[d['userName'] for d in userData], finalRecs=finalRecs, origins=origins)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("userNames", help="Anilist username of the user you wish to generate recommendations for", nargs='+')
+parser.add_argument("userNames", help="Anilist username(s) of the user you wish to generate recommendations for", nargs='+')
 parser.add_argument("-r", "--refresh", help = "Force refresh user data from anilist's servers. This may take a while. Note if no cached data exists for the given user, this will happen anyway", action="store_true")
 parser.add_argument("-s", "--studios", help = "Use common animation studios in the recommendation algorithm. Note this will naturally push manga to the bottom of the list", action="store_true")
 parser.add_argument("-t", "--tags", help = "Use common tags in the recommendation algorithm", action="store_true")
 parser.add_argument("-f", "--staff", help = "Use common staff in the recommendation algorithm", action="store_true")
 args = parser.parse_args()
 
+angles = {
+    'userRating': 'rated it', 
+    'media': 'if you liked:', 
+    'tags': 'tags that may interest you:', 
+    'studios': 'studios that may interest you:', 
+    'staff': 'staff that may interest you:'
+}
+
 userData = [{'userName': n, 'list': [], 'origins': {}} for n in args.userNames]
 
 for index, userName in enumerate(args.userNames):
-    tempList, tempOrigins = getRecommendationList(userName=userName, useTags=args.tags, useStudios=args.studios, useStaff=args.staff, refresh=args.refresh)
+    tempList, tempOrigins, tempUserList = getRecommendationList(userName=userName, useTags=args.tags, useStudios=args.studios, useStaff=args.staff, refresh=args.refresh)
     userData[index]['list'] = tempList
     userData[index]['origins'] = tempOrigins
+    userData[index]['userList'] = tempUserList
 
 if len(args.userNames) > 1:
-    generateJointList(userData=userData)
+    generateJointList(userData=userData, rewatch=False)
