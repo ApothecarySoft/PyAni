@@ -1,5 +1,5 @@
 def userListQuery(userName, mediaType, chunk):
-  return f"""query MediaListCollection {{
+    return f"""query MediaListCollection {{
     MediaListCollection (userName: "{userName}", type: {mediaType}, status_not: PLANNING, chunk: {chunk}, perChunk: 60) {{
       hasNextChunk
       lists {{
@@ -81,8 +81,9 @@ def userListQuery(userName, mediaType, chunk):
     }}
   }}"""
 
+
 def userMeanScoresQuery(username):
-  return f"""query User {{
+    return f"""query User {{
   User (name: "{username}") {{
     statistics {{
       anime {{
@@ -94,6 +95,7 @@ def userMeanScoresQuery(username):
     }}
   }}
 }}"""
+
 
 def userQuery(username, pageNum, mediaType):
     return f"""query {{\n  
@@ -111,6 +113,7 @@ def userQuery(username, pageNum, mediaType):
                     }}\n  
                   }}\n  
                 }}"""
+
 
 def animeQuery(id):
     return f"""query {{
