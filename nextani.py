@@ -17,7 +17,7 @@ def countdownTimer_s(seconds: int):
         seconds -= 1
 
 
-def fetchDataForChunk(client, mediaType: str, chunk: int, userName):
+def fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
     print(f"fetching for chunk #{chunk}")
     query = gql(
         queries.userListQuery(userName=userName, mediaType=mediaType, chunk=chunk)
@@ -47,7 +47,7 @@ def fetchDataForChunk(client, mediaType: str, chunk: int, userName):
     return entries, result["MediaListCollection"]["hasNextChunk"]
 
 
-def fetchDataForType(client, mediaType: str, userName):
+def fetchDataForType(client, mediaType: str, userName: str):
     print(f"fetching data for type {mediaType}")
     chunkNum = 0
     hasNextChunk = True
@@ -62,7 +62,7 @@ def fetchDataForType(client, mediaType: str, userName):
     return entries
 
 
-def fetchDataForUser(userName):
+def fetchDataForUser(userName: str):
     print(f"fetching data for user {userName}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=True)
@@ -339,7 +339,9 @@ def generateOriginStringForType(media, origins, userName=None):
             continue
 
         if angle == "userRating":
-            string += f"\tYou {text} {list(origins[media['id']][angle].values())[0]}%\n"
+            userRating = list(origins[media["id"]][angle].values())[0]
+            if userRating > 0:
+                string += f"\tYou {text} {userRating}%\n"
             continue
 
         string += f"\t{text} "
@@ -408,18 +410,18 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
     print(f"{userName} gives a mean score of {meanScore}")
 
     tags, studios, recommendations, staffs, origins = calculateInitial(
-        userList, meanScore
+        userList=userList, meanScore=meanScore
     )
 
     finalRecs, finalOrigins = calculateBiases(
-        tags,
-        studios,
-        recommendations,
-        staffs,
-        useTags,
-        useStudios,
-        useStaff,
-        origins,
+        tagRatings=tags,
+        studioRatings=studios,
+        recs=recommendations,
+        staffRatings=staffs,
+        useTags=useTags,
+        useStudios=useStudios,
+        useStaff=useStaff,
+        recOrigins=origins,
         userMean=meanScore,
     )
 
@@ -427,9 +429,14 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
     topScore = math.log(finalRecs[0]["recScore"] + 1, logBase) ** 2
 
     for rec in finalRecs:
-        rec["recScore"] = round(
-            (math.log(rec["recScore"] + 1, logBase) ** 2) / topScore * 100, 2
-        )
+        mediaId = rec["recMedia"]["id"]
+        userRating = {a["media"]["id"]: a["score"] for a in userList}.get(mediaId, 0)
+        if userRating > 0:
+            rec["recScore"] = userRating
+        else:
+            rec["recScore"] = round(
+                (math.log(rec["recScore"] + 1, logBase) ** 2) / topScore * 100, 2
+            )
 
     with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
         for tag in tags:
@@ -445,7 +452,18 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
                 f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f
             )
 
-    writeRecList(userNames=[userName], finalRecs=finalRecs, origins=[finalOrigins])
+    writeRecList(
+        userNames=[userName],
+        finalRecs=[
+            rec
+            for rec in sorted(finalRecs, key=lambda x: -x["recScore"])
+            if not {a["media"]["id"]: a["status"] for a in userList}.get(
+                rec["recMedia"]["id"], ""
+            )
+            in {"COMPLETED", "REPEATING"}
+        ],
+        origins=[finalOrigins],
+    )
 
     return finalRecs, finalOrigins, userList
 
@@ -460,13 +478,8 @@ def generateJointList(userData, rewatch):
     origins = [d["origins"] for d in userData]
     for rec in jointList:
         score = 0
-        for i, d in enumerate(userDicts):
-            mediaId = rec["recMedia"]["id"]
-            if "userRating" in origins[i].get(mediaId, {}):
-                tempScore = list(origins[i][mediaId]["userRating"].values())[0]
-                score += tempScore
-            else:
-                score += d.get(mediaId, {"recScore": 0})["recScore"]
+        for d in userDicts:
+            score += d.get(rec["recMedia"]["id"], {"recScore": 0})["recScore"]
         rec["recScore"] = score / len(userDicts)
 
     writeRecList(
