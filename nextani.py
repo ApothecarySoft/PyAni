@@ -382,6 +382,11 @@ def writeRecList(finalRecs, origins, userNames):
             year = media["startDate"]["year"]
             score = rec["recScore"]
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
+
+            if "meanScore" in media:
+                meanScore = media["meanScore"]
+                print(f"\tother users rated it {meanScore}%\n", file=f)
+
             for i in range(len(userNames)):
                 print(
                     generateOriginStringForType(
