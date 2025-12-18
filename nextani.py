@@ -315,7 +315,7 @@ def calculateBiases(
                     continue
                 studioTotal += studioRatings_d[studioId]["score"]
                 studioCount += 1
-                if useStudios and studioRatings_d[studioId]["score"] > userMean - 3:
+                if studioRatings_d[studioId]["score"] > userMean - 3:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[3], {}
                     )[studioId] = studio
