@@ -117,9 +117,7 @@ def calculateAveragePropertyScorePhase1(
     return propRatings
 
 
-def calculateAveragePropertyScorePhase2(
-    minThreshold: int, propType: str, propRatings
-):
+def calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRatings):
     finalPropRatings = [
         {propType: x[propType], "score": x["sum"] / x["count"]}
         for x in list(propRatings.values())
@@ -218,14 +216,11 @@ def calculateInitial(userList, meanScore):
                 normalizedRating * mediaMeanScore
             )  # scale rating based on mean score
 
-            recommendationRating = recommendations.setdefault(recId, {
-                "recScore": 0,
-                "recMedia": recMedia,
-                "recCount": 0
-            })
+            recommendationRating = recommendations.setdefault(
+                recId, {"recScore": 0, "recMedia": recMedia, "recCount": 0}
+            )
             recommendationRating["recScore"] += scaledRating
             recommendationRating["recCount"] += 1
-            
 
     finalGenreRatings = calculateAveragePropertyScorePhase2(
         minThreshold=2, propType="genre", propRatings=genreRatings
@@ -559,6 +554,12 @@ parser.add_argument(
     help="Use common staff in the recommendation algorithm",
     action="store_true",
 )
+parser.add_argument(
+    "-g",
+    "--genres",
+    help="User common genres in the recommendation algorithm",
+    action="store_true",
+)
 args = parser.parse_args()
 
 angles = {
@@ -579,7 +580,7 @@ for index, userName in enumerate(args.userNames):
             "tags": args.tags,
             "staff": args.staff,
             "studios": args.studios,
-            "genres": True,
+            "genres": args.genres,
         },
         refresh=args.refresh,
     )
