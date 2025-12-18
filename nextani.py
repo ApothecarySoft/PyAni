@@ -118,12 +118,12 @@ def calculateAveragePropertyScorePhase1(
 
 
 def calculateAveragePropertyScorePhase2(
-    minOriginThreshold: int, propType: str, propRatings
+    minThreshold: int, propType: str, propRatings
 ):
     finalPropRatings = [
         {propType: x[propType], "score": x["sum"] / x["count"]}
         for x in list(propRatings.values())
-        if x["count"] > minOriginThreshold
+        if x["count"] > minThreshold
     ]
     finalPropRatings.sort(key=lambda x: -x["score"])
 
@@ -228,16 +228,16 @@ def calculateInitial(userList, meanScore):
             
 
     finalGenreRatings = calculateAveragePropertyScorePhase2(
-        minOriginThreshold=2, propType="genre", propRatings=genreRatings
+        minThreshold=2, propType="genre", propRatings=genreRatings
     )
     finalTagRatings = calculateAveragePropertyScorePhase2(
-        minOriginThreshold=200, propType="tag", propRatings=tagRatings
+        minThreshold=200, propType="tag", propRatings=tagRatings
     )
     finalStudioRatings = calculateAveragePropertyScorePhase2(
-        minOriginThreshold=2, propType="studio", propRatings=studioRatings
+        minThreshold=2, propType="studio", propRatings=studioRatings
     )
     finalStaffRatings = calculateAveragePropertyScorePhase2(
-        minOriginThreshold=2, propType="staff", propRatings=staffRatings
+        minThreshold=2, propType="staff", propRatings=staffRatings
     )
 
     finalRecList = [
