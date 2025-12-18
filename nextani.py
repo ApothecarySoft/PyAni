@@ -37,7 +37,6 @@ def fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
                 print(f"unhandled http error {errorCode}. trying again in 10 seconds")
                 countdownTimer_s(10)
     lists = result["MediaListCollection"]["lists"]
-    # print(lists)
     entries = [
         listEntries
         for currentList in lists
@@ -99,9 +98,42 @@ def calculateMeanScore(userList):
     return scoresTotal / scoresCount
 
 
+def calculateAveragePropertyScorePhase1(
+    propertyList, propRatings, propType: str, score, weightName=None
+):
+    for prop in propertyList:
+        propId = prop["id"] if "id" in prop else prop
+        propRating = propRatings.setdefault(
+            propId, {propType: prop, "sum": 0, "count": 0}
+        )
+        if weightName:
+            weight = prop[weightName]
+            propRating["sum"] += score * weight
+            propRating["count"] += weight
+        else:
+            propRating["sum"] += score
+            propRating["count"] += 1
+
+    return propRatings
+
+
+def calculateAveragePropertyScorePhase2(
+    minOriginThreshold: int, propType: str, propRatings
+):
+    finalPropRatings = [
+        {propType: x[propType], "score": x["sum"] / x["count"]}
+        for x in list(propRatings.values())
+        if x["count"] > minOriginThreshold
+    ]
+    finalPropRatings.sort(key=lambda x: -x["score"])
+
+    return finalPropRatings
+
+
 def calculateInitial(userList, meanScore):
     global angles
     angleKeys = list(angles.keys())
+    genreRatings = {}
     tagRatings = {}
     studioRatings = {}
     staffRatings = {}
@@ -120,55 +152,34 @@ def calculateInitial(userList, meanScore):
         mediaMeanScore = media["meanScore"] or 1
         popularity = media["popularity"]
 
-        for tag in media["tags"]:
-            tagRank = tag["rank"]
-            tagId = tag["id"]
-            if tagId not in tagRatings:
-                tagRatings[tagId] = {
-                    "tag": tag,
-                    "weightedScoreSum": score * tagRank,
-                    "weightSum": tagRank,
-                }
-            else:
-                oldTagRating = tagRatings[tagId]
-                tagRatings[tagId] = {
-                    "tag": oldTagRating["tag"],
-                    "weightedScoreSum": oldTagRating["weightedScoreSum"]
-                    + score * tagRank,
-                    "weightSum": oldTagRating["weightSum"] + tagRank,
-                }
+        genreRatings = calculateAveragePropertyScorePhase1(
+            propertyList=media["genres"],
+            propRatings=genreRatings,
+            propType="genre",
+            score=score,
+        )
 
-        for studio in media["studios"]["nodes"]:
-            studioId = studio["id"]
-            if studioId not in studioRatings:
-                studioRatings[studioId] = {
-                    "studio": studio,
-                    "scoreSum": score,
-                    "studioOccurrence": 1,
-                }
-            else:
-                oldStudioRating = studioRatings[studioId]
-                studioRatings[studioId] = {
-                    "studio": oldStudioRating["studio"],
-                    "scoreSum": oldStudioRating["scoreSum"] + score,
-                    "studioOccurrence": oldStudioRating["studioOccurrence"] + 1,
-                }
+        studioRatings = calculateAveragePropertyScorePhase1(
+            propertyList=media["studios"]["nodes"],
+            propRatings=studioRatings,
+            propType="studio",
+            score=score,
+        )
 
-        for staff in media["staff"]["nodes"]:
-            staffId = staff["id"]
-            if staffId not in staffRatings:
-                staffRatings[staffId] = {
-                    "staff": staff,
-                    "scoreSum": score,
-                    "staffOccurrence": 1,
-                }
-            else:
-                oldStaffRating = staffRatings[staffId]
-                staffRatings[staffId] = {
-                    "staff": oldStaffRating["staff"],
-                    "scoreSum": oldStaffRating["scoreSum"] + score,
-                    "staffOccurrence": oldStaffRating["staffOccurrence"] + 1,
-                }
+        tagRatings = calculateAveragePropertyScorePhase1(
+            propertyList=media["tags"],
+            propRatings=tagRatings,
+            propType="tag",
+            score=score,
+            weightName="rank",
+        )
+
+        staffRatings = calculateAveragePropertyScorePhase1(
+            propertyList=media["staff"]["nodes"],
+            propRatings=staffRatings,
+            propType="staff",
+            score=score,
+        )
 
         for rec in media["recommendations"]["nodes"]:
             rating = rec["rating"]
@@ -207,41 +218,27 @@ def calculateInitial(userList, meanScore):
                 normalizedRating * mediaMeanScore
             )  # scale rating based on mean score
 
-            # I feel like there's gotta be a more elegant way to do this
-            if recId not in recommendations:
-                recommendations[recId] = {
-                    "recScore": scaledRating,
-                    "recMedia": recMedia,
-                    "recCount": 1,
-                }
-            else:
-                oldRecommendation = recommendations[recId]
-                recommendations[recId] = {
-                    "recScore": oldRecommendation["recScore"] + scaledRating,
-                    "recMedia": oldRecommendation["recMedia"],
-                    "recCount": oldRecommendation["recCount"] + 1,
-                }
+            recommendationRating = recommendations.setdefault(recId, {
+                "recScore": 0,
+                "recMedia": recMedia,
+                "recCount": 0
+            })
+            recommendationRating["recScore"] += scaledRating
+            recommendationRating["recCount"] += 1
+            
 
-    finalTagRatings = [
-        {"tag": x["tag"], "score": x["weightedScoreSum"] / x["weightSum"]}
-        for x in list(tagRatings.values())
-        if x["weightSum"] > 200
-    ]
-    finalTagRatings.sort(key=lambda x: -x["score"])
-
-    finalStudioRatings = [
-        {"studio": x["studio"], "score": x["scoreSum"] / x["studioOccurrence"]}
-        for x in list(studioRatings.values())
-        if x["studioOccurrence"] > 2
-    ]
-    finalStudioRatings.sort(key=lambda x: -x["score"])
-
-    finalStaffRatings = [
-        {"staff": x["staff"], "score": x["scoreSum"] / x["staffOccurrence"]}
-        for x in list(staffRatings.values())
-        if x["staffOccurrence"] >= 4
-    ]
-    finalStaffRatings.sort(key=lambda x: -x["score"])
+    finalGenreRatings = calculateAveragePropertyScorePhase2(
+        minOriginThreshold=2, propType="genre", propRatings=genreRatings
+    )
+    finalTagRatings = calculateAveragePropertyScorePhase2(
+        minOriginThreshold=200, propType="tag", propRatings=tagRatings
+    )
+    finalStudioRatings = calculateAveragePropertyScorePhase2(
+        minOriginThreshold=2, propType="studio", propRatings=studioRatings
+    )
+    finalStaffRatings = calculateAveragePropertyScorePhase2(
+        minOriginThreshold=2, propType="staff", propRatings=staffRatings
+    )
 
     finalRecList = [
         {"recScore": x["recScore"] / x["recCount"], "recMedia": x["recMedia"]}
@@ -249,17 +246,22 @@ def calculateInitial(userList, meanScore):
         if x["recCount"] > 1
     ]
 
-    return finalTagRatings, finalStudioRatings, finalRecList, finalStaffRatings, origins
+    return (
+        {
+            "genres": finalGenreRatings,
+            "tags": finalTagRatings,
+            "studios": finalStudioRatings,
+            "staff": finalStaffRatings,
+        },
+        finalRecList,
+        origins,
+    )
 
 
 def calculateBiases(
-    tagRatings,
-    studioRatings,
+    propertyRatings,
     recs,
-    staffRatings,
-    useTags,
-    useStudios,
-    useStaff,
+    use,
     recOrigins,
     userMean,
 ):
@@ -267,28 +269,46 @@ def calculateBiases(
     angleKeys = list(angles.keys())
     finalRecs = []
     for rec in recs:
+        recMedia = rec["recMedia"]
+
+        genreTotal = 0
+        genreCount = 0
+        if use["genres"]:
+            genres = recMedia["genres"]
+            genreRatings_d = {x["genre"]: x for x in propertyRatings["genres"]}
+            for genre in genres:
+                if genre not in genreRatings_d:
+                    continue
+                genreTotal += genreRatings_d[genre]["score"]
+                genreCount += 1
+                if genreRatings_d[genre]["score"] > userMean - 3:
+                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
+                        angleKeys[5], {}
+                    )[genre] = genre
+        genreScore = genreTotal / genreCount if genreCount > 0 else 0
+
         tagTotal = 0
         tagCount = 0
-        tags = rec["recMedia"]["tags"]
-        tagRatings_d = {x["tag"]["id"]: x for x in tagRatings}
-        if useTags:
+        if use["tags"]:
+            tags = recMedia["tags"]
+            tagRatings_d = {x["tag"]["id"]: x for x in propertyRatings["tags"]}
             for tag in tags:
                 tagId = tag["id"]
                 if tagId not in tagRatings_d:
                     continue
                 tagTotal += tagRatings_d[tagId]["score"] * tag["rank"]
                 tagCount += 1
-                if useTags and tagRatings_d[tagId]["score"] > userMean - 3:
-                    recOrigins.setdefault(rec["recMedia"]["id"], {}).setdefault(
+                if tagRatings_d[tagId]["score"] > userMean - 3:
+                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[2], {}
                     )[tagId] = tag
         tagScore = tagTotal / tagCount if tagCount > 0 else 0
 
         studioTotal = 0
         studioCount = 0
-        studios = rec["recMedia"]["studios"]["nodes"]
-        studioRatings_d = {x["studio"]["id"]: x for x in studioRatings}
-        if useStudios:
+        if use["studios"]:
+            studios = recMedia["studios"]["nodes"]
+            studioRatings_d = {x["studio"]["id"]: x for x in propertyRatings["studios"]}
             for studio in studios:
                 studioId = studio["id"]
                 if studioId not in studioRatings_d:
@@ -296,32 +316,36 @@ def calculateBiases(
                 studioTotal += studioRatings_d[studioId]["score"]
                 studioCount += 1
                 if useStudios and studioRatings_d[studioId]["score"] > userMean - 3:
-                    recOrigins.setdefault(rec["recMedia"]["id"], {}).setdefault(
+                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[3], {}
                     )[studioId] = studio
         studioScore = studioTotal / studioCount if studioCount > 0 else 0
 
         staffTotal = 0
         staffCount = 0
-        staffs = rec["recMedia"]["staff"]["nodes"]
-        staffRatings_d = {x["staff"]["id"]: x for x in staffRatings}
-        if useStaff:
+        if use["staff"]:
+            staffs = recMedia["staff"]["nodes"]
+            staffRatings_d = {x["staff"]["id"]: x for x in propertyRatings["staff"]}
             for staff in staffs:
                 staffId = staff["id"]
                 if staffId not in staffRatings_d:
                     continue
                 staffTotal += staffRatings_d[staffId]["score"]
                 staffCount += 1
-                if useStaff and staffRatings_d[staffId]["score"] > userMean - 3:
-                    recOrigins.setdefault(rec["recMedia"]["id"], {}).setdefault(
+                if staffRatings_d[staffId]["score"] > userMean - 3:
+                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[4], {}
                     )[staffId] = staff
         staffScore = staffTotal / staffCount if staffCount > 0 else 0
 
         finalRecs.append(
             {
-                "recScore": rec["recScore"] * (tagScore + 1) * (studioScore + 1),
-                "recMedia": rec["recMedia"],
+                "recScore": rec["recScore"]
+                * (tagScore + 1)
+                * (studioScore + 1)
+                * (studioScore + 1)
+                * (genreScore + 1),
+                "recMedia": recMedia,
             }
         )
     finalRecs.sort(key=lambda x: -x["recScore"])
@@ -396,7 +420,7 @@ def writeRecList(finalRecs, origins, userNames):
                 )
 
 
-def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
+def getRecommendationList(userName, use, refresh):
     if not userName:
         return None, None
 
@@ -414,18 +438,14 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
 
     print(f"{userName} gives a mean score of {meanScore}")
 
-    tags, studios, recommendations, staffs, origins = calculateInitial(
+    propertyRatings, recommendations, origins = calculateInitial(
         userList=userList, meanScore=meanScore
     )
 
     finalRecs, finalOrigins = calculateBiases(
-        tagRatings=tags,
-        studioRatings=studios,
+        propertyRatings=propertyRatings,
         recs=recommendations,
-        staffRatings=staffs,
-        useTags=useTags,
-        useStudios=useStudios,
-        useStaff=useStaff,
+        use=use,
         recOrigins=origins,
         userMean=meanScore,
     )
@@ -444,15 +464,19 @@ def getRecommendationList(userName, useTags, useStudios, useStaff, refresh):
             )
 
     with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
-        for tag in tags:
+        for tag in propertyRatings["tags"]:
             print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
 
     with open(f"{userName}-studios.txt", "w", encoding="utf-8") as f:
-        for studio in studios:
+        for studio in propertyRatings["studios"]:
             print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
 
+    with open(f"{userName}-genres.txt", "w", encoding="utf-8") as f:
+        for genre in propertyRatings["genres"]:
+            print(f"{genre['genre']}: {genre['score']}%", file=f)
+
     with open(f"{userName}-staff.txt", "w", encoding="utf-8") as f:
-        for staff in staffs:
+        for staff in propertyRatings["staff"]:
             print(
                 f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f
             )
@@ -543,6 +567,7 @@ angles = {
     "tags": "tags that may interest you:",
     "studios": "studios that may interest you:",
     "staff": "staff that may interest you:",
+    "genres": "genres that may interest you:",
 }
 
 userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
@@ -550,9 +575,12 @@ userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
 for index, userName in enumerate(args.userNames):
     tempList, tempOrigins, tempUserList = getRecommendationList(
         userName=userName,
-        useTags=args.tags,
-        useStudios=args.studios,
-        useStaff=args.staff,
+        use={
+            "tags": args.tags,
+            "staff": args.staff,
+            "studios": args.studios,
+            "genres": True,
+        },
         refresh=args.refresh,
     )
     userData[index]["list"] = tempList
