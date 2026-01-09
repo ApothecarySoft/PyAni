@@ -64,7 +64,7 @@ def fetchDataForType(client, mediaType: str, userName: str):
 def fetchDataForUser(userName: str):
     print(f"fetching data for user {userName}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
-    client = Client(transport=transport, fetch_schema_from_transport=True)
+    client = Client(transport=transport, fetch_schema_from_transport=False)
     entries = fetchDataForType(client=client, mediaType="ANIME", userName=userName)
     entries += fetchDataForType(client=client, mediaType="MANGA", userName=userName)
 
