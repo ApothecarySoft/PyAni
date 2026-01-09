@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <p>Enter one or more anilist usernames to generate recommendations for what to watch!</p> 
+    <form action="{{ url_for("results")}}" method="post">
+        <div class="form-check form-check-inline m-">
+            <input class="form-check-input" type="checkbox" id="refreshCheckbox" value="forceRefresh">
+            <label class="form-check-label" for="refreshCheckbox">Force refresh (use if you've updated your list recently)</label>
+        </div>
+        <div class="form-group">
+            <label for="usernameTextBox">Enter AniList username(s)</label>
+            <input type="text" class="form-control" id="usernameTextBox" placeholder="myusername" aria-describedby="usernameHelp" name="usernames">
+            <small id="usernameHelp" class="form-text text-muted">All profiles must be set to <a href="https://anilist.co/settings/account" target="_blank">public</a>. If you use multiple usernames (separated by spaces) you'll get a joint list!</small>
+        </div>
+        <div class="form-check form-check-inline m-">
+            <input class="form-check-input" type="checkbox" id="genresCheckbox" name="useGenres" checked>
+            <label class="form-check-label" for="genresCheckbox">Use genres</label>
+        </div>
+        <div class="form-check form-check-inline m-">
+            <input class="form-check-input" type="checkbox" id="tagsCheckbox" name="useTags" checked>
+            <label class="form-check-label" for="tagsCheckbox">Use tags</label>
+        </div>
+        <div class="form-check form-check-inline m-">
+            <input class="form-check-input" type="checkbox" id="staffCheckbox" name="useStaff" checked>
+            <label class="form-check-label" for="staffCheckbox">Use staff</label>
+        </div>
+        <div class="form-check form-check-inline m-">
+            <input class="form-check-input" type="checkbox" id="studiosCheckbox" name="useStudios" checked>
+            <label class="form-check-label" for="studiosCheckbox">Use studios</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit!</button>
+
+    </form>     
+    <small class="text-muted">This site caches all fetched data to make subsequent runs faster and reduce strain on the AniList API.<br>This site does not gather any data other than what is requested here or pulled from the AniList API and uses this data solely for providing results.<br>No generative AI was used in the making or operation of this site. By human, for human &#x2764;&#xfe0f;</small>
+{% endblock %}
