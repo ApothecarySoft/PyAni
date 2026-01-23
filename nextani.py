@@ -370,12 +370,11 @@ def calculateBiases(
         finalRecs.append(
             {
                 "recScore": rec["recScore"]
-                * (tagScore + 1)
-                * (studioScore + 1)
-                * (studioScore + 1)
-                * (genreScore + 1)
-                * (staffScore + 1)
-                * (decadeScore + 1),
+                * (tagScore)
+                * (studioScore)
+                * (genreScore)
+                * (staffScore)
+                * (decadeScore),
                 "recMedia": recMedia,
             }
         )
@@ -484,12 +483,12 @@ def getRecommendationList(userName, use, refresh):
         userMean=meanScore,
     )
 
-    logBase = 10
-    topScore = math.log(finalRecs[0]["recScore"] + 1, logBase) ** 2
+    exponent = .25
+    topScore = (finalRecs[0]["recScore"] + 1) ** exponent
 
     for rec in finalRecs:
         rec["recScore"] = round(
-            (math.log(rec["recScore"] + 1, logBase) ** 2) / topScore * 100, 2
+            ((rec["recScore"] + 1) ** exponent) / topScore * 100, 2
         )
 
     with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
