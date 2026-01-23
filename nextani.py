@@ -6,8 +6,6 @@ import time
 import json
 import argparse
 import os
-import math
-from pprint import pprint
 
 
 def countdownTimer_s(seconds: int):
