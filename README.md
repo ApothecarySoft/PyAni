@@ -14,7 +14,7 @@ supports optional flags
 - -r to force refresh from the server
 - -h to display help
 - -t to take tags into account
-- -s to take studios into account (note: this will push manga to the bottom of the list)
+- -s to take studios into account
 - -f to take staff into account 
 - -g to take genres into account 
 # AniList is mean
