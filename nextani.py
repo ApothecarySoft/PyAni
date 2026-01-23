@@ -102,7 +102,7 @@ def calculateAveragePropertyScorePhase1(
     propertyList, propRatings, propType: str, score, weightName=None
 ):
     for prop in propertyList:
-        propId = prop["id"] if "id" in prop else prop
+        propId = prop["id"] if isinstance(prop, dict) and "id" in prop else prop
         propRating = propRatings.setdefault(
             propId, {propType: prop, "sum": 0, "count": 0}
         )
@@ -128,9 +128,14 @@ def calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRa
     return finalPropRatings
 
 
+def getDecadeFromYear(year):
+    return (int(year) // 10) * 10 
+
+
 def calculateInitial(userList, meanScore):
     global angles
     angleKeys = list(angles.keys())
+    decadeRatings = {}
     genreRatings = {}
     tagRatings = {}
     studioRatings = {}
@@ -149,6 +154,13 @@ def calculateInitial(userList, meanScore):
         media = ratedAni["media"]
         mediaMeanScore = media["meanScore"] or 1
         popularity = media["popularity"]
+
+        decadeRatings = calculateAveragePropertyScorePhase1(
+            propertyList=[getDecadeFromYear(media["startDate"]["year"])],
+            propRatings=decadeRatings,
+            propType="decade",
+            score=score,
+        ) if "startDate" in media else {}
 
         genreRatings = calculateAveragePropertyScorePhase1(
             propertyList=media["genres"],
@@ -222,6 +234,10 @@ def calculateInitial(userList, meanScore):
             recommendationRating["recScore"] += scaledRating
             recommendationRating["recCount"] += 1
 
+    finalDecadeRatings = calculateAveragePropertyScorePhase2(
+        minThreshold=0, propType="decade", propRatings=decadeRatings
+    )
+
     finalGenreRatings = calculateAveragePropertyScorePhase2(
         minThreshold=2, propType="genre", propRatings=genreRatings
     )
@@ -247,6 +263,7 @@ def calculateInitial(userList, meanScore):
             "tags": finalTagRatings,
             "studios": finalStudioRatings,
             "staff": finalStaffRatings,
+            "decades": finalDecadeRatings
         },
         finalRecList,
         origins,
@@ -263,8 +280,25 @@ def calculateBiases(
     global angles
     angleKeys = list(angles.keys())
     finalRecs = []
+    originThreshold = userMean * 1.13 - 13 # simplified version of: userMean - (.13 * (100 - userMean))
     for rec in recs:
         recMedia = rec["recMedia"]
+
+        decadeTotal = 0
+        decadeCount = 0
+        if use["decades"]:
+            decades = [getDecadeFromYear(recMedia["startDate"]["year"])]
+            decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
+            for decade in decades:
+                if decade not in decadeRatings_d:
+                    continue
+                decadeTotal += decadeRatings_d[decade]["score"]
+                decadeCount += 1
+                if decadeRatings_d[decade]["score"] > originThreshold:
+                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
+                        angleKeys[6], {}
+                    )[decade] = decade
+        decadeScore = decadeTotal / decadeCount if decadeCount > 0 else userMean
 
         genreTotal = 0
         genreCount = 0
@@ -276,11 +310,11 @@ def calculateBiases(
                     continue
                 genreTotal += genreRatings_d[genre]["score"]
                 genreCount += 1
-                if genreRatings_d[genre]["score"] > userMean - 3:
+                if genreRatings_d[genre]["score"] > originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[5], {}
                     )[genre] = genre
-        genreScore = genreTotal / genreCount if genreCount > 0 else 0
+        genreScore = genreTotal / genreCount if genreCount > 0 else userMean
 
         tagTotal = 0
         tagCount = 0
@@ -293,11 +327,11 @@ def calculateBiases(
                     continue
                 tagTotal += tagRatings_d[tagId]["score"] * tag["rank"]
                 tagCount += 1
-                if tagRatings_d[tagId]["score"] > userMean - 3:
+                if tagRatings_d[tagId]["score"] > originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[2], {}
                     )[tagId] = tag
-        tagScore = tagTotal / tagCount if tagCount > 0 else 0
+        tagScore = tagTotal / tagCount if tagCount > 0 else userMean
 
         studioTotal = 0
         studioCount = 0
@@ -310,11 +344,11 @@ def calculateBiases(
                     continue
                 studioTotal += studioRatings_d[studioId]["score"]
                 studioCount += 1
-                if studioRatings_d[studioId]["score"] > userMean - 3:
+                if studioRatings_d[studioId]["score"] > originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[3], {}
                     )[studioId] = studio
-        studioScore = studioTotal / studioCount if studioCount > 0 else 0
+        studioScore = studioTotal / studioCount if studioCount > 0 else userMean
 
         staffTotal = 0
         staffCount = 0
@@ -327,11 +361,11 @@ def calculateBiases(
                     continue
                 staffTotal += staffRatings_d[staffId]["score"]
                 staffCount += 1
-                if staffRatings_d[staffId]["score"] > userMean - 3:
+                if staffRatings_d[staffId]["score"] > originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[4], {}
                     )[staffId] = staff
-        staffScore = staffTotal / staffCount if staffCount > 0 else 0
+        staffScore = staffTotal / staffCount if staffCount > 0 else userMean
 
         finalRecs.append(
             {
@@ -339,7 +373,9 @@ def calculateBiases(
                 * (tagScore + 1)
                 * (studioScore + 1)
                 * (studioScore + 1)
-                * (genreScore + 1),
+                * (genreScore + 1)
+                * (staffScore + 1)
+                * (decadeScore + 1),
                 "recMedia": recMedia,
             }
         )
@@ -365,6 +401,9 @@ def generateOriginStringForType(media, origins, userName=None):
 
         string += f"\t{text} "
         for origin in origins[media["id"]][angle].values():
+            if angle == "decades":
+                string += f"{origin}s"
+                return string + "\n"
             name = ""
             if "title" in origin:
                 name = getEnglishTitleOrUserPreferred(origin["title"])
@@ -389,10 +428,10 @@ def writeRecList(finalRecs, origins, userNames):
     fullName = ""
     if len(userNames) > 1:
         for userName in userNames:
-            fullName += f"{userName}-"
+            fullName += f"{userName}"
     else:
-        fullName = f"{userNames[0]}-"
-    with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
+        fullName = f"{userNames[0]}"
+    with open(f"{fullName}-recs.txt", "w", encoding="utf-8") as f:
         for rec in finalRecs:
 
             media = rec["recMedia"]
@@ -445,18 +484,13 @@ def getRecommendationList(userName, use, refresh):
         userMean=meanScore,
     )
 
-    logBase = math.e
+    logBase = 10
     topScore = math.log(finalRecs[0]["recScore"] + 1, logBase) ** 2
 
     for rec in finalRecs:
-        mediaId = rec["recMedia"]["id"]
-        userRating = {a["media"]["id"]: a["score"] for a in userList}.get(mediaId, 0)
-        if userRating > 0:
-            rec["recScore"] = userRating
-        else:
-            rec["recScore"] = round(
-                (math.log(rec["recScore"] + 1, logBase) ** 2) / topScore * 100, 2
-            )
+        rec["recScore"] = round(
+            (math.log(rec["recScore"] + 1, logBase) ** 2) / topScore * 100, 2
+        )
 
     with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
         for tag in propertyRatings["tags"]:
@@ -469,6 +503,10 @@ def getRecommendationList(userName, use, refresh):
     with open(f"{userName}-genres.txt", "w", encoding="utf-8") as f:
         for genre in propertyRatings["genres"]:
             print(f"{genre['genre']}: {genre['score']}%", file=f)
+
+    with open(f"{userName}-decades.txt", "w", encoding="utf-8") as f:
+        for decade in propertyRatings["decades"]:
+            print(f"{decade['decade']}: {decade['score']}%", file=f)
 
     with open(f"{userName}-staff.txt", "w", encoding="utf-8") as f:
         for staff in propertyRatings["staff"]:
@@ -484,7 +522,7 @@ def getRecommendationList(userName, use, refresh):
             if not {a["media"]["id"]: a["status"] for a in userList}.get(
                 rec["recMedia"]["id"], ""
             )
-            in {"COMPLETED", "REPEATING"}
+            in {"COMPLETED", "REPEATING", "DROPPED"}
         ],
         origins=[finalOrigins],
     )
@@ -503,7 +541,12 @@ def generateJointList(userData, rewatch):
     for rec in jointList:
         score = 0
         for d in userDicts:
-            score += d.get(rec["recMedia"]["id"], {"recScore": 0})["recScore"]
+            mediaId = rec["recMedia"]["id"]
+            userRating = d.get(mediaId, {"score": 0}).get("score", 0)
+            if userRating > 0:
+                score += userRating
+            else:
+                score += d.get(mediaId, {"recScore": 0})["recScore"]
         rec["recScore"] = score / len(userDicts)
 
     writeRecList(
@@ -513,7 +556,7 @@ def generateJointList(userData, rewatch):
             for r in sorted(jointList, key=lambda x: -x["recScore"])
             if rewatch
             or not all(
-                u.get(r["recMedia"]["id"], "") in {"COMPLETED", "REPEATING"}
+                u.get(r["recMedia"]["id"], "") in {"COMPLETED", "REPEATING", "DROPPED"}
                 for u in [
                     {a["media"]["id"]: a["status"] for a in b}
                     for b in [d["userList"] for d in userData]
@@ -569,6 +612,7 @@ angles = {
     "studios": "studios that may interest you:",
     "staff": "staff that may interest you:",
     "genres": "genres that may interest you:",
+    "decades": "because you enjoyed things from the"
 }
 
 userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
@@ -581,6 +625,7 @@ for index, userName in enumerate(args.userNames):
             "staff": args.staff,
             "studios": args.studios,
             "genres": args.genres,
+            "decades": True
         },
         refresh=args.refresh,
     )
