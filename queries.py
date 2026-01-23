@@ -24,6 +24,9 @@ def userListQuery(userName, mediaType, chunk):
             }}
             meanScore
             popularity
+            startDate {{
+              year
+            }}
             studios (isMain: true) {{
               nodes {{
                 name
