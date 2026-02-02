@@ -6,6 +6,7 @@ import time
 import json
 import argparse
 import os
+from pprint import pprint
 
 
 def countdownTimer_s(seconds: int):
@@ -425,10 +426,10 @@ def writeRecList(finalRecs, origins, userNames):
     fullName = ""
     if len(userNames) > 1:
         for userName in userNames:
-            fullName += f"{userName}"
+            fullName += f"{userName}-"
     else:
         fullName = f"{userNames[0]}"
-    with open(f"{fullName}-recs.txt", "w", encoding="utf-8") as f:
+    with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
         for rec in finalRecs:
 
             media = rec["recMedia"]
@@ -519,7 +520,7 @@ def getRecommendationList(userName, use, refresh):
             if not {a["media"]["id"]: a["status"] for a in userList}.get(
                 rec["recMedia"]["id"], ""
             )
-            in {"COMPLETED", "REPEATING", "DROPPED"}
+            in {"COMPLETED", "REPEATING", "DROPPED", "CURRENT"}
         ],
         origins=[finalOrigins],
     )
@@ -529,6 +530,7 @@ def getRecommendationList(userName, use, refresh):
 
 def generateJointList(userData, rewatch):
     userDicts = [{rec["recMedia"]["id"]: rec for rec in d["list"]} for d in userData]
+    userScores = [{entry["media"]["id"]: entry["score"] for entry in d["userList"]} for d in userData]
     dictsUnion = {}
     for d in userDicts:
         dictsUnion = dictsUnion | d
@@ -537,9 +539,9 @@ def generateJointList(userData, rewatch):
     origins = [d["origins"] for d in userData]
     for rec in jointList:
         score = 0
-        for d in userDicts:
+        for i, d in enumerate(userDicts):
             mediaId = rec["recMedia"]["id"]
-            userRating = d.get(mediaId, {"score": 0}).get("score", 0)
+            userRating = userScores[i].get(mediaId) or 0
             if userRating > 0:
                 score += userRating
             else:
