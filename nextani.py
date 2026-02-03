@@ -428,7 +428,7 @@ def writeRecList(finalRecs, origins, userNames):
         for userName in userNames:
             fullName += f"{userName}-"
     else:
-        fullName = f"{userNames[0]}"
+        fullName = f"{userNames[0]}-"
     with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
         for rec in finalRecs:
 
