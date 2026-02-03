@@ -64,11 +64,13 @@ def fetchDataForType(client, mediaType: str, userName: str):
 def generateDataFileNameForUser(userName: str):
     return f"{userName}-{str(date.today()).replace('-', '')}-list.json"
 
+
 def cleanUpOldDataFiles(userName: str):
     fileNames = glob.glob(f"{userName}-*-list.json")
     for fileName in fileNames:
-        if (fileName != generateDataFileNameForUser(userName=userName)):
+        if fileName != generateDataFileNameForUser(userName=userName):
             os.remove(fileName)
+
 
 def fetchDataForUser(userName: str):
     print(f"fetching data for user {userName}")
@@ -138,7 +140,7 @@ def calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRa
 
 
 def getDecadeFromYear(year):
-    return (int(year) // 10) * 10 
+    return (int(year) // 10) * 10
 
 
 def calculateInitial(userList, meanScore):
@@ -164,12 +166,16 @@ def calculateInitial(userList, meanScore):
         mediaMeanScore = media["meanScore"] or 1
         popularity = media["popularity"]
 
-        decadeRatings = calculateAveragePropertyScorePhase1(
-            propertyList=[getDecadeFromYear(media["startDate"]["year"])],
-            propRatings=decadeRatings,
-            propType="decade",
-            score=score,
-        ) if "startDate" in media else {}
+        decadeRatings = (
+            calculateAveragePropertyScorePhase1(
+                propertyList=[getDecadeFromYear(media["startDate"]["year"])],
+                propRatings=decadeRatings,
+                propType="decade",
+                score=score,
+            )
+            if "startDate" in media
+            else {}
+        )
 
         genreRatings = calculateAveragePropertyScorePhase1(
             propertyList=media["genres"],
@@ -272,7 +278,7 @@ def calculateInitial(userList, meanScore):
             "tags": finalTagRatings,
             "studios": finalStudioRatings,
             "staff": finalStaffRatings,
-            "decades": finalDecadeRatings
+            "decades": finalDecadeRatings,
         },
         finalRecList,
         origins,
@@ -289,7 +295,9 @@ def calculateBiases(
     global angles
     angleKeys = list(angles.keys())
     finalRecs = []
-    originThreshold = userMean * 1.13 - 13 # simplified version of: userMean - (.13 * (100 - userMean))
+    originThreshold = (
+        userMean * 1.13 - 13
+    )  # simplified version of: userMean - (.13 * (100 - userMean))
     for rec in recs:
         recMedia = rec["recMedia"]
 
@@ -494,13 +502,11 @@ def getRecommendationList(userName, use, refresh):
         userMean=meanScore,
     )
 
-    exponent = .25
+    exponent = 0.25
     topScore = (finalRecs[0]["recScore"] + 1) ** exponent
 
     for rec in finalRecs:
-        rec["recScore"] = round(
-            ((rec["recScore"] + 1) ** exponent) / topScore * 100, 2
-        )
+        rec["recScore"] = round(((rec["recScore"] + 1) ** exponent) / topScore * 100, 2)
 
     with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
         for tag in propertyRatings["tags"]:
@@ -542,7 +548,10 @@ def getRecommendationList(userName, use, refresh):
 
 def generateJointList(userData, rewatch):
     userDicts = [{rec["recMedia"]["id"]: rec for rec in d["list"]} for d in userData]
-    userScores = [{entry["media"]["id"]: entry["score"] for entry in d["userList"]} for d in userData]
+    userScores = [
+        {entry["media"]["id"]: entry["score"] for entry in d["userList"]}
+        for d in userData
+    ]
     dictsUnion = {}
     for d in userDicts:
         dictsUnion = dictsUnion | d
@@ -623,7 +632,7 @@ angles = {
     "studios": "studios that may interest you:",
     "staff": "staff that may interest you:",
     "genres": "genres that may interest you:",
-    "decades": "because you enjoyed things from the"
+    "decades": "because you enjoyed things from the",
 }
 
 userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
@@ -636,7 +645,7 @@ for index, userName in enumerate(args.userNames):
             "staff": args.staff,
             "studios": args.studios,
             "genres": args.genres,
-            "decades": True
+            "decades": True,
         },
         refresh=args.refresh,
     )
