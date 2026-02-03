@@ -6,7 +6,8 @@ import time
 import json
 import argparse
 import os
-from pprint import pprint
+import glob
+from datetime import date
 
 
 def countdownTimer_s(seconds: int):
@@ -60,6 +61,15 @@ def fetchDataForType(client, mediaType: str, userName: str):
     return entries
 
 
+def generateDataFileNameForUser(userName: str):
+    return f"{userName}-{str(date.today()).replace('-', '')}-list.json"
+
+def cleanUpOldDataFiles(userName: str):
+    fileNames = glob.glob(f"{userName}-*-list.json")
+    for fileName in fileNames:
+        if (fileName != generateDataFileNameForUser(userName=userName)):
+            os.remove(fileName)
+
 def fetchDataForUser(userName: str):
     print(f"fetching data for user {userName}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
@@ -67,7 +77,7 @@ def fetchDataForUser(userName: str):
     entries = fetchDataForType(client=client, mediaType="ANIME", userName=userName)
     entries += fetchDataForType(client=client, mediaType="MANGA", userName=userName)
 
-    with open(f"{userName}-list.json", "w") as file:
+    with open(generateDataFileNameForUser(userName=userName), "w") as file:
         json.dump(entries, file)
 
     return entries
@@ -456,13 +466,15 @@ def getRecommendationList(userName, use, refresh):
     if not userName:
         return None, None
 
-    userFile = f"{userName}-list.json"
+    userFile = generateDataFileNameForUser(userName=userName)
     userList = []
 
     if refresh or not os.path.exists(userFile):
         userList = fetchDataForUser(userName)
     else:
         userList = loadDataFromFile(userFile)
+
+    cleanUpOldDataFiles(userName=userName)
 
     print(f"loaded {len(userList)} titles for {userName}")
 
