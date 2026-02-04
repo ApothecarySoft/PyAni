@@ -9,6 +9,8 @@ import os
 import glob
 from datetime import date
 
+oldDataThreshold = 1
+
 
 def countdownTimer_s(seconds: int):
     while seconds > 0:
@@ -61,15 +63,16 @@ def fetchDataForType(client, mediaType: str, userName: str):
     return entries
 
 
+def getTodayDateStamp():
+    return str(date.today()).replace('-', '')
+
+
+def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=oldDataThreshold):
+    return abs(int(stamp1) - int(stamp2)) <= delta
+
+
 def generateDataFileNameForUser(userName: str):
-    return f"{userName}-{str(date.today()).replace('-', '')}-list.json"
-
-
-def cleanUpOldDataFiles(userName: str):
-    fileNames = glob.glob(f"{userName}-*-list.json")
-    for fileName in fileNames:
-        if fileName != generateDataFileNameForUser(userName=userName):
-            os.remove(fileName)
+    return f"{userName}-{getTodayDateStamp()}-list.json"
 
 
 def fetchDataForUser(userName: str):
@@ -163,7 +166,7 @@ def calculateInitial(userList, meanScore):
             else:
                 score = meanScore
         media = ratedAni["media"]
-        mediaMeanScore = media["meanScore"] or 1
+        mediaMeanScore = media["meanScore"] * 2 or 200
         popularity = media["popularity"]
 
         decadeRatings = (
@@ -296,8 +299,8 @@ def calculateBiases(
     angleKeys = list(angles.keys())
     finalRecs = []
     originThreshold = (
-        userMean * 1.13 - 13
-    )  # simplified version of: userMean - (.13 * (100 - userMean))
+        -0.2 + 0.853 * userMean + (1.49e-3 * (userMean ** 2))
+    )
     for rec in recs:
         recMedia = rec["recMedia"]
 
@@ -470,19 +473,40 @@ def writeRecList(finalRecs, origins, userNames):
                 )
 
 
+def extractDateStampFromFileName(fileName):
+    return int(fileName.split("-")[-2])
+
+
+def latestValidUserFileOrNew(userName: str, clean=True):
+    fileNames = glob.glob(f"{userName}-*-list.json")
+    latestValidFileName = None
+    latestValidDateStamp = None
+    for fileName in fileNames:
+        dateStamp = extractDateStampFromFileName(fileName=fileName)
+        if compareDateStamps(dateStamp):
+            if not latestValidDateStamp or dateStamp > latestValidDateStamp:
+                if clean and latestValidFileName:
+                    os.remove(latestValidFileName)
+                latestValidFileName = fileName
+                latestValidDateStamp = dateStamp
+            elif clean:
+                os.remove(fileName)
+        elif clean:
+            os.remove(fileName)
+    return latestValidFileName or generateDataFileNameForUser(userName=userName)
+
+
 def getRecommendationList(userName, use, refresh):
     if not userName:
         return None, None
 
-    userFile = generateDataFileNameForUser(userName=userName)
+    userFile = latestValidUserFileOrNew(userName=userName, clean=True)
     userList = []
 
     if refresh or not os.path.exists(userFile):
         userList = fetchDataForUser(userName)
     else:
         userList = loadDataFromFile(userFile)
-
-    cleanUpOldDataFiles(userName=userName)
 
     print(f"loaded {len(userList)} titles for {userName}")
 
