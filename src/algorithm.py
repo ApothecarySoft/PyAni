@@ -166,7 +166,7 @@ def calculateInitial(userList, meanScore):
         mediaMeanScore = (media["meanScore"] or 100) * 2
         popularity = media["popularity"]
 
-        if "startDate" in media and media["startDate"].get("year"):
+        if media.get("startDate") and media["startDate"].get("year"):
             decadeRatings = calculateAveragePropertyScorePhase1(
                 propertyList=[getDecadeFromYear(media["startDate"]["year"])],
                 propRatings=decadeRatings,
@@ -297,7 +297,7 @@ def calculateBiases(
 
         decadeTotal = 0
         decadeCount = 0
-        if use["decades"] and "startDate" in recMedia and "year" in recMedia["startDate"]:
+        if use["decades"] and recMedia.get("startDate") and recMedia["startDate"].get("year"):
             decades = [getDecadeFromYear(recMedia["startDate"]["year"])]
             decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
             for decade in decades:

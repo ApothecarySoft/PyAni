@@ -9,15 +9,14 @@ from cachefiles import saveUserDataFile
 def fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
     print(f"fetching for chunk #{chunk}")
     query = gql(
-        queries.userListQuery(mediaType=mediaType, chunk=chunk)
+        queries.userListQuery()
     )
-    query.variable_values = {"name": userName}
     result = None
     MAX_RETRIES = 3
     retries = 0
     while result == None and retries <= MAX_RETRIES:
         try:
-            result = client.execute(query)
+            result = client.execute(query, variable_values = {"name": userName, "type": mediaType, "chunk": chunk})
         except TransportQueryError as e:
             errorCode = e.errors[0]["status"]
             retries += 1

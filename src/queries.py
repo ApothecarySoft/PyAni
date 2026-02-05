@@ -1,6 +1,6 @@
-def userListQuery(mediaType, chunk):
-    return f"""query MediaListCollection($name: String) {{
-    MediaListCollection (userName: $name, type: {mediaType}, status_not: PLANNING, chunk: {chunk}, perChunk: 60) {{
+def userListQuery():
+    return f"""query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {{
+    MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 60) {{
       hasNextChunk
       lists {{
         name
