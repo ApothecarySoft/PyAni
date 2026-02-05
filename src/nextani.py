@@ -1,98 +1,8 @@
-from gql import gql, Client
-from gql.transport.httpx import HTTPXTransport
-from gql.transport.exceptions import TransportQueryError
-import queries
-import time
-import json
 import argparse
 import os
-import glob
-from datetime import date
 
-oldDataThreshold = 1
-
-
-def countdownTimer_s(seconds: int):
-    while seconds > 0:
-        print(seconds)
-        time.sleep(1)
-        seconds -= 1
-
-
-def fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
-    print(f"fetching for chunk #{chunk}")
-    query = gql(
-        queries.userListQuery(userName=userName, mediaType=mediaType, chunk=chunk)
-    )
-    result = None
-    while result == None:
-        try:
-            result = client.execute(query)
-        except TransportQueryError as e:
-            errorCode = e.errors[0]["status"]
-            if errorCode == 429:
-                print(
-                    f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data"
-                )
-                countdownTimer_s(65)
-            else:
-                print(f"unhandled http error {errorCode}. trying again in 10 seconds")
-                countdownTimer_s(10)
-    lists = result["MediaListCollection"]["lists"]
-    entries = [
-        listEntries
-        for currentList in lists
-        for listEntries in currentList["entries"]
-        if not currentList["isCustomList"]
-    ]
-    return entries, result["MediaListCollection"]["hasNextChunk"]
-
-
-def fetchDataForType(client, mediaType: str, userName: str):
-    print(f"fetching data for type {mediaType}")
-    chunkNum = 0
-    hasNextChunk = True
-    entries = []
-    while hasNextChunk:
-        chunkNum += 1
-        newEntries, hasNextChunk = fetchDataForChunk(
-            client=client, mediaType=mediaType, chunk=chunkNum, userName=userName
-        )
-        entries += newEntries
-
-    return entries
-
-
-def getTodayDateStamp():
-    return str(date.today()).replace('-', '')
-
-
-def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=oldDataThreshold):
-    return abs(int(stamp1) - int(stamp2)) <= delta
-
-
-def generateDataFileNameForUser(userName: str):
-    return f"{userName}-{getTodayDateStamp()}-list.json"
-
-
-def fetchDataForUser(userName: str):
-    print(f"fetching data for user {userName}")
-    transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
-    client = Client(transport=transport, fetch_schema_from_transport=False)
-    entries = fetchDataForType(client=client, mediaType="ANIME", userName=userName)
-    entries += fetchDataForType(client=client, mediaType="MANGA", userName=userName)
-
-    with open(generateDataFileNameForUser(userName=userName), "w") as file:
-        json.dump(entries, file)
-
-    return entries
-
-
-def loadDataFromFile(userFile):
-    with open(userFile, "r") as file:
-        userList = json.load(file)
-
-    return userList
+from cachefiles import latestValidUserFileOrNew, loadDataFromFile
+from apitools import fetchDataForUser
 
 
 def calculateMeanScore(userList):
@@ -445,11 +355,8 @@ def getEnglishTitleOrUserPreferred(title):
 
 def writeRecList(finalRecs, origins, userNames):
     fullName = ""
-    if len(userNames) > 1:
-        for userName in userNames:
-            fullName += f"{userName}-"
-    else:
-        fullName = f"{userNames[0]}-"
+    for userName in userNames:
+        fullName += f"{userName}-"
     with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
         for rec in finalRecs:
 
@@ -471,29 +378,6 @@ def writeRecList(finalRecs, origins, userNames):
                     ),
                     file=f,
                 )
-
-
-def extractDateStampFromFileName(fileName):
-    return int(fileName.split("-")[-2])
-
-
-def latestValidUserFileOrNew(userName: str, clean=True):
-    fileNames = glob.glob(f"{userName}-*-list.json")
-    latestValidFileName = None
-    latestValidDateStamp = None
-    for fileName in fileNames:
-        dateStamp = extractDateStampFromFileName(fileName=fileName)
-        if compareDateStamps(dateStamp):
-            if not latestValidDateStamp or dateStamp > latestValidDateStamp:
-                if clean and latestValidFileName:
-                    os.remove(latestValidFileName)
-                latestValidFileName = fileName
-                latestValidDateStamp = dateStamp
-            elif clean:
-                os.remove(fileName)
-        elif clean:
-            os.remove(fileName)
-    return latestValidFileName or generateDataFileNameForUser(userName=userName)
 
 
 def getRecommendationList(userName, use, refresh):
