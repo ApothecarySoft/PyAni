@@ -2,15 +2,14 @@ from datetime import date
 from glob import glob
 import json
 import os
-
-oldDataThreshold = 1
+import constants
 
 
 def getTodayDateStamp():
     return str(date.today()).replace("-", "")
 
 
-def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=oldDataThreshold):
+def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=constants.oldDataThreshold):
     return abs(int(stamp1) - int(stamp2)) <= delta
 
 

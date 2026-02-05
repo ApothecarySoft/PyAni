@@ -7,3 +7,5 @@ angles = {
     "genres": "genres that may interest you:",
     "decades": "because you enjoyed things from the",
 }
+
+oldDataThreshold = 1
