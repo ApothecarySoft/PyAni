@@ -3,7 +3,7 @@ import constants
 
 def generateOriginStringForType(media, origins, userName=None):
     string = f"\t{userName}\n" if userName else ""
-    for angle, text in constants.angles.items():
+    for angle, text in constants.ANGLES.items():
         if media["id"] not in origins:
             continue
         if angle not in origins[media["id"]]:

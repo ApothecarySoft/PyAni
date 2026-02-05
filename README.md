@@ -19,4 +19,4 @@ supports optional flags
 - -g to take genres into account 
 # AniList is mean
 they rate limit their API pretty strictly so fetching data from the server can take 5-10 minutes  
-data is cached locally for one day after that, though, so subsequent runs are quicker unless you force refresh
+data is cached locally for 2 days, though, so subsequent runs are quicker unless you force refresh

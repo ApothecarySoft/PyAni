@@ -37,7 +37,7 @@ parser.add_argument(
 parser.add_argument(
     "-g",
     "--genres",
-    help="User common genres in the recommendation algorithm",
+    help="Use common genres in the recommendation algorithm",
     action="store_true",
 )
 args = parser.parse_args()

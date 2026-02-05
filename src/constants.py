@@ -1,4 +1,4 @@
-angles = {
+ANGLES = {
     "userRating": "rated it",
     "media": "if you liked:",
     "tags": "tags that may interest you:",
@@ -8,4 +8,4 @@ angles = {
     "decades": "because you enjoyed things from the",
 }
 
-oldDataThreshold = 1
+OLD_DATA_THRESHOLD = 1

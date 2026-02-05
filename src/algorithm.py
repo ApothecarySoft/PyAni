@@ -59,6 +59,9 @@ def getRecommendationList(userName, use, refresh):
         userMean=meanScore,
     )
 
+    if not finalRecs:
+        return [], {}, userList
+
     exponent = 0.25
     topScore = (finalRecs[0]["recScore"] + 1) ** exponent
 
@@ -142,7 +145,7 @@ def getDecadeFromYear(year):
 
 
 def calculateInitial(userList, meanScore):
-    angleKeys = list(constants.angles.keys())
+    angleKeys = list(constants.ANGLES.keys())
     decadeRatings = {}
     genreRatings = {}
     tagRatings = {}
@@ -160,19 +163,16 @@ def calculateInitial(userList, meanScore):
             else:
                 score = meanScore
         media = ratedAni["media"]
-        mediaMeanScore = media["meanScore"] * 2 or 200
+        mediaMeanScore = (media["meanScore"] or 100) * 2
         popularity = media["popularity"]
 
-        decadeRatings = (
-            calculateAveragePropertyScorePhase1(
+        if "startDate" in media and media["startDate"].get("year"):
+            decadeRatings = calculateAveragePropertyScorePhase1(
                 propertyList=[getDecadeFromYear(media["startDate"]["year"])],
                 propRatings=decadeRatings,
                 propType="decade",
                 score=score,
             )
-            if "startDate" in media
-            else {}
-        )
 
         genreRatings = calculateAveragePropertyScorePhase1(
             propertyList=media["genres"],
@@ -289,7 +289,7 @@ def calculateBiases(
     recOrigins,
     userMean,
 ):
-    angleKeys = list(constants.angles.keys())
+    angleKeys = list(constants.ANGLES.keys())
     finalRecs = []
     originThreshold = -0.2 + 0.853 * userMean + (1.49e-3 * (userMean ** 2))
     for rec in recs:
@@ -297,7 +297,7 @@ def calculateBiases(
 
         decadeTotal = 0
         decadeCount = 0
-        if use["decades"]:
+        if use["decades"] and "startDate" in recMedia and "year" in recMedia["startDate"]:
             decades = [getDecadeFromYear(recMedia["startDate"]["year"])]
             decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
             for decade in decades:
@@ -337,7 +337,7 @@ def calculateBiases(
                 if tagId not in tagRatings_d:
                     continue
                 tagTotal += tagRatings_d[tagId]["score"] * tag["rank"]
-                tagCount += 1
+                tagCount += tag["rank"]
                 if tagRatings_d[tagId]["score"] > originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[2], {}

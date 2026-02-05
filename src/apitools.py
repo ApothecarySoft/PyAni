@@ -9,14 +9,18 @@ from cachefiles import saveUserDataFile
 def fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
     print(f"fetching for chunk #{chunk}")
     query = gql(
-        queries.userListQuery(userName=userName, mediaType=mediaType, chunk=chunk)
+        queries.userListQuery(mediaType=mediaType, chunk=chunk)
     )
+    query.variable_values = {"name": userName}
     result = None
-    while result == None:
+    MAX_RETRIES = 3
+    retries = 0
+    while result == None and retries <= MAX_RETRIES:
         try:
             result = client.execute(query)
         except TransportQueryError as e:
             errorCode = e.errors[0]["status"]
+            retries += 1
             if errorCode == 429:
                 print(
                     f"got http {errorCode}, server is rate limiting us. waiting to continue fetching data"

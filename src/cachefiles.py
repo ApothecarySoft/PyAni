@@ -3,18 +3,21 @@ from glob import glob
 import json
 import os
 import constants
+import re
 
 
 def getTodayDateStamp():
     return str(date.today()).replace("-", "")
 
 
-def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=constants.oldDataThreshold):
+def compareDateStamps(stamp1, stamp2=None, delta=constants.OLD_DATA_THRESHOLD):
+    if not stamp2:
+        stamp2 = getTodayDateStamp()
     return abs(int(stamp1) - int(stamp2)) <= delta
 
 
 def generateDataFileNameForUser(userName: str):
-    return f"{userName}-{getTodayDateStamp()}-list.json"
+    return f"{sanitizeUserName(userName=userName)}-{getTodayDateStamp()}-list.json"
 
 
 def saveUserDataFile(userName: str, entries: list):
@@ -22,8 +25,12 @@ def saveUserDataFile(userName: str, entries: list):
         json.dump(entries, file)
 
 
+def sanitizeUserName(userName: str):
+    return re.sub(r'[^a-zA-Z0-9_-]', '', userName)
+
+
 def latestValidUserFileOrNew(userName: str, clean=True):
-    fileNames = glob(f"{userName}-*-list.json")
+    fileNames = glob(f"{sanitizeUserName(userName=userName)}-*-list.json")
     latestValidFileName = None
     latestValidDateStamp = None
     for fileName in fileNames:
@@ -46,6 +53,9 @@ def extractDateStampFromFileName(fileName):
 
 
 def loadDataFromFile(userFile):
+    if not os.path.exists(userFile):
+        return None
+
     with open(userFile, "r") as file:
         userList = json.load(file)
 

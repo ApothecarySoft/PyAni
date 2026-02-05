@@ -1,6 +1,6 @@
-def userListQuery(userName, mediaType, chunk):
-    return f"""query MediaListCollection {{
-    MediaListCollection (userName: "{userName}", type: {mediaType}, status_not: PLANNING, chunk: {chunk}, perChunk: 60) {{
+def userListQuery(mediaType, chunk):
+    return f"""query MediaListCollection($name: String) {{
+    MediaListCollection (userName: $name, type: {mediaType}, status_not: PLANNING, chunk: {chunk}, perChunk: 60) {{
       hasNextChunk
       lists {{
         name
@@ -58,7 +58,6 @@ def userListQuery(userName, mediaType, chunk):
                   }}
                   meanScore
                   format
-                  id
                   popularity
                   startDate {{
                     year
@@ -85,91 +84,91 @@ def userListQuery(userName, mediaType, chunk):
   }}"""
 
 
-def userMeanScoresQuery(username):
-    return f"""query User {{
-  User (name: "{username}") {{
-    statistics {{
-      anime {{
-        meanScore
-      }}
-      manga {{
-        meanScore
-      }}
-    }}
-  }}
-}}"""
+# def userMeanScoresQuery():
+#     return f"""query User($name: String) {{
+#   User (name: $name) {{
+#     statistics {{
+#       anime {{
+#         meanScore
+#       }}
+#       manga {{
+#         meanScore
+#       }}
+#     }}
+#   }}
+# }}"""
 
 
-def userQuery(username, pageNum, mediaType):
-    return f"""query {{\n  
-                  Page(page: {pageNum}) {{\n  
-                    users(name: \"{username}\") {{\n  
-                      id\n  
-                      statistics {{\n  
-                        {mediaType} {{\n  
-                          scores (sort: MEAN_SCORE_DESC) {{\n  
-                            score\n  
-                            mediaIds\n  
-                          }}\n  
-                        }}\n  
-                      }}\n  
-                    }}\n  
-                  }}\n  
-                }}"""
+# def userQuery(username, pageNum, mediaType):
+#     return f"""query {{\n  
+#                   Page(page: {pageNum}) {{\n  
+#                     users(name: \"{username}\") {{\n  
+#                       id\n  
+#                       statistics {{\n  
+#                         {mediaType} {{\n  
+#                           scores (sort: MEAN_SCORE_DESC) {{\n  
+#                             score\n  
+#                             mediaIds\n  
+#                           }}\n  
+#                         }}\n  
+#                       }}\n  
+#                     }}\n  
+#                   }}\n  
+#                 }}"""
 
 
-def animeQuery(id):
-    return f"""query {{
-        Media (id: {id}) {{
-            title {{
-                english
-                userPreferred
-            }}
-            meanScore
-            popularity
-            seasonYear
-            isAdult
-            description
-            studios {{
-                nodes {{
-                    name
-                    id
-                }}
-            }}
-            genres
-            tags {{
-                id
-                rank
-                name
-            }}
-            recommendations {{
-                nodes {{
-                    rating
-                    mediaRecommendation {{
-                        title {{
-                            english
-                            userPreferred
-                        }}
-                        meanScore
-                        id
-                        popularity
-                        seasonYear
-                        isAdult
-                        description
-                        studios {{
-                            nodes {{
-                                name
-                                id
-                            }}
-                        }}
-                        genres
-                        tags {{
-                            id
-                            rank
-                            name
-                        }}
-                    }}
-                }}
-            }}
-        }}
-    }}"""
+# def animeQuery(id):
+#     return f"""query {{
+#         Media (id: {id}) {{
+#             title {{
+#                 english
+#                 userPreferred
+#             }}
+#             meanScore
+#             popularity
+#             seasonYear
+#             isAdult
+#             description
+#             studios {{
+#                 nodes {{
+#                     name
+#                     id
+#                 }}
+#             }}
+#             genres
+#             tags {{
+#                 id
+#                 rank
+#                 name
+#             }}
+#             recommendations {{
+#                 nodes {{
+#                     rating
+#                     mediaRecommendation {{
+#                         title {{
+#                             english
+#                             userPreferred
+#                         }}
+#                         meanScore
+#                         id
+#                         popularity
+#                         seasonYear
+#                         isAdult
+#                         description
+#                         studios {{
+#                             nodes {{
+#                                 name
+#                                 id
+#                             }}
+#                         }}
+#                         genres
+#                         tags {{
+#                             id
+#                             rank
+#                             name
+#                         }}
+#                     }}
+#                 }}
+#             }}
+#         }}
+#     }}"""
