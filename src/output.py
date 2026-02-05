@@ -1,7 +1,7 @@
 import constants
 
 
-def generateOriginStringForType(media, origins, userName=None):
+def _generateOriginStringForType(media, origins, userName=None):
     string = f"\t{userName}\n" if userName else ""
     for angle, text in constants.ANGLES.items():
         if media["id"] not in origins:
@@ -22,7 +22,7 @@ def generateOriginStringForType(media, origins, userName=None):
                 return string + "\n"
             name = ""
             if "title" in origin:
-                name = getEnglishTitleOrUserPreferred(origin["title"])
+                name = _getEnglishTitleOrUserPreferred(origin["title"])
             elif "name" in origin:
                 name = (
                     origin["name"]
@@ -36,7 +36,7 @@ def generateOriginStringForType(media, origins, userName=None):
     return string
 
 
-def getEnglishTitleOrUserPreferred(title):
+def _getEnglishTitleOrUserPreferred(title):
     return title["english"] if title["english"] else title["userPreferred"]
 
 
@@ -48,7 +48,7 @@ def writeRecList(finalRecs, origins, userNames):
         for rec in finalRecs:
 
             media = rec["recMedia"]
-            title = getEnglishTitleOrUserPreferred(media["title"])
+            title = _getEnglishTitleOrUserPreferred(media["title"])
             mediaFormat = media["format"]
             year = media["startDate"]["year"]
             score = rec["recScore"]
@@ -60,7 +60,7 @@ def writeRecList(finalRecs, origins, userNames):
 
             for i in range(len(userNames)):
                 print(
-                    generateOriginStringForType(
+                    _generateOriginStringForType(
                         media=media, origins=origins[i], userName=userNames[i]
                     ),
                     file=f,
