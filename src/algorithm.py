@@ -163,7 +163,7 @@ def calculateInitial(userList, meanScore):
             else:
                 score = meanScore
         media = ratedAni["media"]
-        mediaMeanScore = (media["meanScore"] or 100) * 2
+        mediaMeanScore = (media.get("meanScore") or 100) * 2
         popularity = media["popularity"]
 
         if media.get("startDate") and media["startDate"].get("year"):
