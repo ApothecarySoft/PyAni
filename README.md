@@ -8,7 +8,7 @@ if you don't have it already
 # Usage
 run nextani.py in python3 along with one or more anilist usernames. if you use multiple usernames, it will generate a joint list for all users listed
 ```
-python3 nextani.py [-rhtsfg] username1 [username2]...
+python3 src/nextani.py [-rhtsfg] username1 [username2]...
 ```
 supports optional flags
 - -r to force refresh from the server
