@@ -7,7 +7,7 @@ oldDataThreshold = 1
 
 
 def getTodayDateStamp():
-    return str(date.today()).replace('-', '')
+    return str(date.today()).replace("-", "")
 
 
 def compareDateStamps(stamp1, stamp2=getTodayDateStamp(), delta=oldDataThreshold):
@@ -51,4 +51,3 @@ def loadDataFromFile(userFile):
         userList = json.load(file)
 
     return userList
-
