@@ -297,7 +297,11 @@ def _calculateBiases(
 
         decadeTotal = 0
         decadeCount = 0
-        if use["decades"] and recMedia.get("startDate") and recMedia["startDate"].get("year"):
+        if (
+            use["decades"]
+            and recMedia.get("startDate")
+            and recMedia["startDate"].get("year")
+        ):
             decades = [_getDecadeFromYear(recMedia["startDate"]["year"])]
             decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
             for decade in decades:

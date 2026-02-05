@@ -26,7 +26,7 @@ def saveUserDataFile(userName: str, entries: list):
 
 
 def _sanitizeUserName(userName: str):
-    return re.sub(r'[^a-zA-Z0-9_-]', '', userName)
+    return re.sub(r"[^a-zA-Z0-9_-]", "", userName)
 
 
 def latestValidUserFileOrNew(userName: str, clean=True):

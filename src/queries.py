@@ -100,20 +100,20 @@ def userListQuery():
 
 
 # def userQuery(username, pageNum, mediaType):
-#     return f"""query {{\n  
-#                   Page(page: {pageNum}) {{\n  
-#                     users(name: \"{username}\") {{\n  
-#                       id\n  
-#                       statistics {{\n  
-#                         {mediaType} {{\n  
-#                           scores (sort: MEAN_SCORE_DESC) {{\n  
-#                             score\n  
-#                             mediaIds\n  
-#                           }}\n  
-#                         }}\n  
-#                       }}\n  
-#                     }}\n  
-#                   }}\n  
+#     return f"""query {{\n
+#                   Page(page: {pageNum}) {{\n
+#                     users(name: \"{username}\") {{\n
+#                       id\n
+#                       statistics {{\n
+#                         {mediaType} {{\n
+#                           scores (sort: MEAN_SCORE_DESC) {{\n
+#                             score\n
+#                             mediaIds\n
+#                           }}\n
+#                         }}\n
+#                       }}\n
+#                     }}\n
+#                   }}\n
 #                 }}"""
 
 
