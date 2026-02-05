@@ -43,15 +43,15 @@ def getRecommendationList(userName, use, refresh):
 
     print(f"loaded {len(userList)} titles for {userName}")
 
-    meanScore = calculateMeanScore(userList)
+    meanScore = _calculateMeanScore(userList)
 
     print(f"{userName} gives a mean score of {meanScore}")
 
-    propertyRatings, recommendations, origins = calculateInitial(
+    propertyRatings, recommendations, origins = _calculateInitial(
         userList=userList, meanScore=meanScore
     )
 
-    finalRecs, finalOrigins = calculateBiases(
+    finalRecs, finalOrigins = _calculateBiases(
         propertyRatings=propertyRatings,
         recs=recommendations,
         use=use,
@@ -93,7 +93,7 @@ def getRecommendationList(userName, use, refresh):
     return finalRecs, finalOrigins, userList
 
 
-def calculateMeanScore(userList):
+def _calculateMeanScore(userList):
     scoresTotal = 0
     scoresCount = 0
 
@@ -110,7 +110,7 @@ def calculateMeanScore(userList):
     return scoresTotal / scoresCount
 
 
-def calculateAveragePropertyScorePhase1(
+def _calculateAveragePropertyScorePhase1(
     propertyList, propRatings, propType: str, score, weightName=None
 ):
     for prop in propertyList:
@@ -129,7 +129,7 @@ def calculateAveragePropertyScorePhase1(
     return propRatings
 
 
-def calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRatings):
+def _calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRatings):
     finalPropRatings = [
         {propType: x[propType], "score": x["sum"] / x["count"]}
         for x in list(propRatings.values())
@@ -140,11 +140,11 @@ def calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRa
     return finalPropRatings
 
 
-def getDecadeFromYear(year):
+def _getDecadeFromYear(year):
     return (int(year) // 10) * 10
 
 
-def calculateInitial(userList, meanScore):
+def _calculateInitial(userList, meanScore):
     angleKeys = list(constants.ANGLES.keys())
     decadeRatings = {}
     genreRatings = {}
@@ -167,28 +167,28 @@ def calculateInitial(userList, meanScore):
         popularity = media["popularity"]
 
         if media.get("startDate") and media["startDate"].get("year"):
-            decadeRatings = calculateAveragePropertyScorePhase1(
-                propertyList=[getDecadeFromYear(media["startDate"]["year"])],
+            decadeRatings = _calculateAveragePropertyScorePhase1(
+                propertyList=[_getDecadeFromYear(media["startDate"]["year"])],
                 propRatings=decadeRatings,
                 propType="decade",
                 score=score,
             )
 
-        genreRatings = calculateAveragePropertyScorePhase1(
+        genreRatings = _calculateAveragePropertyScorePhase1(
             propertyList=media["genres"],
             propRatings=genreRatings,
             propType="genre",
             score=score,
         )
 
-        studioRatings = calculateAveragePropertyScorePhase1(
+        studioRatings = _calculateAveragePropertyScorePhase1(
             propertyList=media["studios"]["nodes"],
             propRatings=studioRatings,
             propType="studio",
             score=score,
         )
 
-        tagRatings = calculateAveragePropertyScorePhase1(
+        tagRatings = _calculateAveragePropertyScorePhase1(
             propertyList=media["tags"],
             propRatings=tagRatings,
             propType="tag",
@@ -196,7 +196,7 @@ def calculateInitial(userList, meanScore):
             weightName="rank",
         )
 
-        staffRatings = calculateAveragePropertyScorePhase1(
+        staffRatings = _calculateAveragePropertyScorePhase1(
             propertyList=media["staff"]["nodes"],
             propRatings=staffRatings,
             propType="staff",
@@ -246,20 +246,20 @@ def calculateInitial(userList, meanScore):
             recommendationRating["recScore"] += scaledRating
             recommendationRating["recCount"] += 1
 
-    finalDecadeRatings = calculateAveragePropertyScorePhase2(
+    finalDecadeRatings = _calculateAveragePropertyScorePhase2(
         minThreshold=0, propType="decade", propRatings=decadeRatings
     )
 
-    finalGenreRatings = calculateAveragePropertyScorePhase2(
+    finalGenreRatings = _calculateAveragePropertyScorePhase2(
         minThreshold=2, propType="genre", propRatings=genreRatings
     )
-    finalTagRatings = calculateAveragePropertyScorePhase2(
+    finalTagRatings = _calculateAveragePropertyScorePhase2(
         minThreshold=200, propType="tag", propRatings=tagRatings
     )
-    finalStudioRatings = calculateAveragePropertyScorePhase2(
+    finalStudioRatings = _calculateAveragePropertyScorePhase2(
         minThreshold=2, propType="studio", propRatings=studioRatings
     )
-    finalStaffRatings = calculateAveragePropertyScorePhase2(
+    finalStaffRatings = _calculateAveragePropertyScorePhase2(
         minThreshold=2, propType="staff", propRatings=staffRatings
     )
 
@@ -282,7 +282,7 @@ def calculateInitial(userList, meanScore):
     )
 
 
-def calculateBiases(
+def _calculateBiases(
     propertyRatings,
     recs,
     use,
@@ -298,7 +298,7 @@ def calculateBiases(
         decadeTotal = 0
         decadeCount = 0
         if use["decades"] and recMedia.get("startDate") and recMedia["startDate"].get("year"):
-            decades = [getDecadeFromYear(recMedia["startDate"]["year"])]
+            decades = [_getDecadeFromYear(recMedia["startDate"]["year"])]
             decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
             for decade in decades:
                 if decade not in decadeRatings_d:
