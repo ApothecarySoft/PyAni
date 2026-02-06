@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Results</h2>
+<div class="spinner-border" role="status" style="align-content: center;">
+    <span class="visually-hidden">Loading...</span>"
+</div>
+{% for item in data %}
+<!--insert for loop here to render all results-->
+{% endfor %}
+{% endblock %}
