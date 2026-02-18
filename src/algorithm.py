@@ -325,7 +325,7 @@ def _calculateBiases(
                     continue
                 genreTotal += genreRatings_d[genre]["score"]
                 genreCount += 1
-                if genreRatings_d[genre]["score"] > originThreshold:
+                if genreRatings_d[genre]["score"] >= originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[5], {}
                     )[genre] = genre
@@ -342,7 +342,7 @@ def _calculateBiases(
                     continue
                 tagTotal += tagRatings_d[tagId]["score"] * tag["rank"]
                 tagCount += tag["rank"]
-                if tagRatings_d[tagId]["score"] > originThreshold:
+                if tagRatings_d[tagId]["score"] >= originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[2], {}
                     )[tagId] = tag
@@ -359,7 +359,7 @@ def _calculateBiases(
                     continue
                 studioTotal += studioRatings_d[studioId]["score"]
                 studioCount += 1
-                if studioRatings_d[studioId]["score"] > originThreshold:
+                if studioRatings_d[studioId]["score"] >= originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[3], {}
                     )[studioId] = studio
@@ -376,7 +376,7 @@ def _calculateBiases(
                     continue
                 staffTotal += staffRatings_d[staffId]["score"]
                 staffCount += 1
-                if staffRatings_d[staffId]["score"] > originThreshold:
+                if staffRatings_d[staffId]["score"] >= originThreshold:
                     recOrigins.setdefault(recMedia["id"], {}).setdefault(
                         angleKeys[4], {}
                     )[staffId] = staff
