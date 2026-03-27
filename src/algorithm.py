@@ -14,7 +14,7 @@ def generateJointList(userData):
     for d in userDicts:
         dictsUnion = dictsUnion | d
 
-    jointList = [value for (key, value) in dictsUnion.items()]
+    jointList = [value for (key, value) in dictsUnion.items() if value["recMedia"]["type"] != "MANGA"]
     for rec in jointList:
         score = 0
         for i, d in enumerate(userDicts):
@@ -62,7 +62,7 @@ def getRecommendationList(userName, use, refresh):
     if not finalRecs:
         return [], {}, userList
 
-    exponent = 0.25
+    exponent = 0.16
     topScore = (finalRecs[0]["recScore"] + 1) ** exponent
 
     for rec in finalRecs:

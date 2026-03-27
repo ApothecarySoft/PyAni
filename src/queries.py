@@ -44,6 +44,7 @@ def userListQuery():
                 rating
                 mediaRecommendation {{
                   id
+                  type
                   title {{
                     english
                     userPreferred
