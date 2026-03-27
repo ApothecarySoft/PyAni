@@ -64,7 +64,7 @@ for index, userName in enumerate(args.userNames):
             if not {a["media"]["id"]: a["status"] for a in tempUserList}.get(
                 rec["recMedia"]["id"], ""
             )
-            in {"COMPLETED", "REPEATING", "DROPPED", "CURRENT"}
+            in {"COMPLETED", "REPEATING", "DROPPED"}
         ],
         origins=[tempOrigins],
     )
