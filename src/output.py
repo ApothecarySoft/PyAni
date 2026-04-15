@@ -44,7 +44,7 @@ def writeRecList(finalRecs, origins, userNames):
     fullName = ""
     for userName in userNames:
         fullName += f"{userName}-"
-    with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
+    with open(f"{fullName}anime-recs.txt", "w", encoding="utf-8") as af, open(f"{fullName}manga-recs.txt", "w", encoding="utf-8") as mf:
         for rec in finalRecs:
 
             media = rec["recMedia"]
@@ -52,6 +52,9 @@ def writeRecList(finalRecs, origins, userNames):
             mediaFormat = media["format"]
             year = media["startDate"]["year"]
             score = rec["recScore"]
+
+            f = af if media["type"] == "ANIME" else mf
+            
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
 
             if "meanScore" in media:
