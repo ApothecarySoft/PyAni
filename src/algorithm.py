@@ -14,7 +14,7 @@ def generateJointList(userData):
     for d in userDicts:
         dictsUnion = dictsUnion | d
 
-    jointList = [value for (key, value) in dictsUnion.items() if value["recMedia"]["type"] != "MANGA"]
+    jointList = [value for (key, value) in dictsUnion.items()]
     for rec in jointList:
         score = 0
         for i, d in enumerate(userDicts):
