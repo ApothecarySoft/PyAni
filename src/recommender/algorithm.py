@@ -1,6 +1,6 @@
 import os
-from recommender.cachefiles import latest_valid_user_file_or_new, loadDataFromFile
-from recommender.apitools import fetchDataForUser
+from recommender.cachefiles import latest_valid_user_file_or_new, load_data_from_file
+from recommender.apitools import fetch_data_for_user
 import recommender.constants as constants
 
 
@@ -46,9 +46,9 @@ def get_recommendation_list(user_name, use, refresh):
     user_file = latest_valid_user_file_or_new(user_name=user_name, clean=True)
 
     if refresh or not os.path.exists(user_file):
-        user_list = fetchDataForUser(user_name)
+        user_list = fetch_data_for_user(user_name)
     else:
-        user_list = loadDataFromFile(user_file)
+        user_list = load_data_from_file(user_file)
 
     print(f"loaded {len(user_list)} titles for {user_name}")
 
@@ -56,16 +56,16 @@ def get_recommendation_list(user_name, use, refresh):
 
     print(f"{user_name} gives a mean score of {mean_score}")
 
-    property_ratings, recommendations, origins = _calculateInitial(
-        userList=user_list, meanScore=mean_score
+    property_ratings, recommendations, origins = _calculate_initial(
+        user_list=user_list, mean_score=mean_score
     )
 
-    final_recs, final_origins = _calculateBiases(
-        propertyRatings=property_ratings,
+    final_recs, final_origins = _calculate_biases(
+        property_ratings=property_ratings,
         recs=recommendations,
         use=use,
-        recOrigins=origins,
-        userMean=mean_score,
+        rec_origins=origins,
+        user_mean=mean_score,
     )
 
     if not final_recs:
@@ -121,96 +121,98 @@ def _calculate_mean_score(user_list):
     return scores_total / scores_count
 
 
-def _calculateAveragePropertyScorePhase1(
-    propertyList, propRatings, propType: str, score, weightName=None
+def _calculate_average_property_score_phase_1(
+    prop_list, prop_ratings, prop_type: str, score, weight_name=None
 ):
-    for prop in propertyList:
-        propId = prop["id"] if isinstance(prop, dict) and "id" in prop else prop
-        propRating = propRatings.setdefault(
-            propId, {propType: prop, "sum": 0, "count": 0}
+    for prop in prop_list:
+        prop_id = prop["id"] if isinstance(prop, dict) and "id" in prop else prop
+        prop_rating = prop_ratings.setdefault(
+            prop_id, {prop_type: prop, "sum": 0, "count": 0}
         )
-        if weightName:
-            weight = prop[weightName]
-            propRating["sum"] += score * weight
-            propRating["count"] += weight
+        if weight_name:
+            weight = prop[weight_name]
+            prop_rating["sum"] += score * weight
+            prop_rating["count"] += weight
         else:
-            propRating["sum"] += score
-            propRating["count"] += 1
+            prop_rating["sum"] += score
+            prop_rating["count"] += 1
 
-    return propRatings
+    return prop_ratings
 
 
-def _calculateAveragePropertyScorePhase2(minThreshold: int, propType: str, propRatings):
-    finalPropRatings = [
-        {propType: x[propType], "score": x["sum"] / x["count"]}
-        for x in list(propRatings.values())
-        if x["count"] > minThreshold
+def _calculate_average_property_score_phase_2(
+    min_threshold: int, prop_type: str, prop_ratings
+):
+    final_prop_ratings = [
+        {prop_type: x[prop_type], "score": x["sum"] / x["count"]}
+        for x in list(prop_ratings.values())
+        if x["count"] > min_threshold
     ]
-    finalPropRatings.sort(key=lambda x: -x["score"])
+    final_prop_ratings.sort(key=lambda x: -x["score"])
 
-    return finalPropRatings
+    return final_prop_ratings
 
 
-def _getDecadeFromYear(year):
+def _get_decade_from_year(year):
     return (int(year) // 10) * 10
 
 
-def _calculateInitial(userList, meanScore):
-    angleKeys = list(constants.ANGLES.keys())
-    decadeRatings = {}
-    genreRatings = {}
-    tagRatings = {}
-    studioRatings = {}
-    staffRatings = {}
+def _calculate_initial(user_list, mean_score):
+    angle_keys = list(constants.ANGLES.keys())
+    decade_ratings = {}
+    genre_ratings = {}
+    tag_ratings = {}
+    studio_ratings = {}
+    staff_ratings = {}
     recommendations = {}
     origins = {}
 
-    for ratedAni in userList:
+    for ratedAni in user_list:
         score = ratedAni["score"]
         status = ratedAni["status"] if "status" in ratedAni.keys() else ""
         if score <= 0:
             if status == "DROPPED":
                 score = 25
             else:
-                score = meanScore
+                score = mean_score
         media = ratedAni["media"]
-        mediaMeanScore = media.get("meanScore") or 100
+        media_mean_score = media.get("meanScore") or 100
         popularity = media["popularity"]
 
         if media.get("startDate") and media["startDate"].get("year"):
-            decadeRatings = _calculateAveragePropertyScorePhase1(
-                propertyList=[_getDecadeFromYear(media["startDate"]["year"])],
-                propRatings=decadeRatings,
-                propType="decade",
+            decade_ratings = _calculate_average_property_score_phase_1(
+                prop_list=[_get_decade_from_year(media["startDate"]["year"])],
+                prop_ratings=decade_ratings,
+                prop_type="decade",
                 score=score,
             )
 
-        genreRatings = _calculateAveragePropertyScorePhase1(
-            propertyList=media["genres"],
-            propRatings=genreRatings,
-            propType="genre",
+        genre_ratings = _calculate_average_property_score_phase_1(
+            prop_list=media["genres"],
+            prop_ratings=genre_ratings,
+            prop_type="genre",
             score=score,
         )
 
-        studioRatings = _calculateAveragePropertyScorePhase1(
-            propertyList=media["studios"]["nodes"],
-            propRatings=studioRatings,
-            propType="studio",
+        studio_ratings = _calculate_average_property_score_phase_1(
+            prop_list=media["studios"]["nodes"],
+            prop_ratings=studio_ratings,
+            prop_type="studio",
             score=score,
         )
 
-        tagRatings = _calculateAveragePropertyScorePhase1(
-            propertyList=media["tags"],
-            propRatings=tagRatings,
-            propType="tag",
+        tag_ratings = _calculate_average_property_score_phase_1(
+            prop_list=media["tags"],
+            prop_ratings=tag_ratings,
+            prop_type="tag",
             score=score,
-            weightName="rank",
+            weight_name="rank",
         )
 
-        staffRatings = _calculateAveragePropertyScorePhase1(
-            propertyList=media["staff"]["nodes"],
-            propRatings=staffRatings,
-            propType="staff",
+        staff_ratings = _calculate_average_property_score_phase_1(
+            prop_list=media["staff"]["nodes"],
+            prop_ratings=staff_ratings,
+            prop_type="staff",
             score=score,
         )
 
@@ -221,60 +223,62 @@ def _calculateInitial(userList, meanScore):
             if rating < 1:
                 continue
 
-            recMedia = rec["mediaRecommendation"]
+            rec_media = rec["mediaRecommendation"]
 
             # ensure we do not try to process null values
-            if not recMedia:
+            if not rec_media:
                 continue
 
-            recPopularity = recMedia["popularity"]
-            recId = recMedia["id"]
+            rec_popularity = rec_media["popularity"]
+            rec_id = rec_media["id"]
 
             # ensure that we don't recommend things that the user already has on their list
             # if any(x['media']['id'] == recId for x in userList):
             #     continue
 
-            userMatch = next((x for x in userList if x["media"]["id"] == recId), None)
-            if userMatch:
-                origins.setdefault(recMedia["id"], {}).setdefault(angleKeys[0], {})[
+            user_match = next(
+                (x for x in user_list if x["media"]["id"] == rec_id), None
+            )
+            if user_match:
+                origins.setdefault(rec_media["id"], {}).setdefault(angle_keys[0], {})[
                     media["id"]
-                ] = userMatch["score"]
+                ] = user_match["score"]
 
-            normalizedRating = (
-                rating / (popularity + recPopularity) * score
+            normalized_rating = (
+                rating / (popularity + rec_popularity) * score
             )  # normalize the rating to mitigate popularity bias and factor in user score
-            if normalizedRating > 0.005:
-                origins.setdefault(recMedia["id"], {}).setdefault(angleKeys[1], {})[
+            if normalized_rating > 0.005:
+                origins.setdefault(rec_media["id"], {}).setdefault(angle_keys[1], {})[
                     media["id"]
                 ] = media
-            scaledRating = (
-                normalizedRating * mediaMeanScore
+            scaled_rating = (
+                normalized_rating * media_mean_score
             )  # scale rating based on mean score
 
-            recommendationRating = recommendations.setdefault(
-                recId, {"recScore": 0, "recMedia": recMedia, "recCount": 0}
+            recommendation_rating = recommendations.setdefault(
+                rec_id, {"recScore": 0, "recMedia": rec_media, "recCount": 0}
             )
-            recommendationRating["recScore"] += scaledRating
-            recommendationRating["recCount"] += 1
+            recommendation_rating["recScore"] += scaled_rating
+            recommendation_rating["recCount"] += 1
 
-    finalDecadeRatings = _calculateAveragePropertyScorePhase2(
-        minThreshold=0, propType="decade", propRatings=decadeRatings
-    )
-
-    finalGenreRatings = _calculateAveragePropertyScorePhase2(
-        minThreshold=2, propType="genre", propRatings=genreRatings
-    )
-    finalTagRatings = _calculateAveragePropertyScorePhase2(
-        minThreshold=200, propType="tag", propRatings=tagRatings
-    )
-    finalStudioRatings = _calculateAveragePropertyScorePhase2(
-        minThreshold=2, propType="studio", propRatings=studioRatings
-    )
-    finalStaffRatings = _calculateAveragePropertyScorePhase2(
-        minThreshold=2, propType="staff", propRatings=staffRatings
+    final_decade_ratings = _calculate_average_property_score_phase_2(
+        min_threshold=0, prop_type="decade", prop_ratings=decade_ratings
     )
 
-    finalRecList = [
+    final_genre_ratings = _calculate_average_property_score_phase_2(
+        min_threshold=2, prop_type="genre", prop_ratings=genre_ratings
+    )
+    final_tag_ratings = _calculate_average_property_score_phase_2(
+        min_threshold=200, prop_type="tag", prop_ratings=tag_ratings
+    )
+    final_studio_ratings = _calculate_average_property_score_phase_2(
+        min_threshold=2, prop_type="studio", prop_ratings=studio_ratings
+    )
+    final_staff_ratings = _calculate_average_property_score_phase_2(
+        min_threshold=2, prop_type="staff", prop_ratings=staff_ratings
+    )
+
+    final_rec_list = [
         {"recScore": x["recScore"] / x["recCount"], "recMedia": x["recMedia"]}
         for x in list(recommendations.values())
         if x["recCount"] > 1
@@ -282,128 +286,130 @@ def _calculateInitial(userList, meanScore):
 
     return (
         {
-            "genres": finalGenreRatings,
-            "tags": finalTagRatings,
-            "studios": finalStudioRatings,
-            "staff": finalStaffRatings,
-            "decades": finalDecadeRatings,
+            "genres": final_genre_ratings,
+            "tags": final_tag_ratings,
+            "studios": final_studio_ratings,
+            "staff": final_staff_ratings,
+            "decades": final_decade_ratings,
         },
-        finalRecList,
+        final_rec_list,
         origins,
     )
 
 
-def _calculateBiases(
-    propertyRatings,
+def _calculate_biases(
+    property_ratings,
     recs,
     use,
-    recOrigins,
-    userMean,
+    rec_origins,
+    user_mean,
 ):
-    angleKeys = list(constants.ANGLES.keys())
-    finalRecs = []
-    originThreshold = -0.2 + 0.853 * userMean + (1.49e-3 * (userMean ** 2))
+    angle_keys = list(constants.ANGLES.keys())
+    final_recs = []
+    origin_threshold = -0.2 + 0.853 * user_mean + (1.49e-3 * (user_mean ** 2))
     for rec in recs:
-        recMedia = rec["recMedia"]
+        rec_media = rec["recMedia"]
 
-        decadeTotal = 0
-        decadeCount = 0
+        decade_total = 0
+        decade_count = 0
         if (
             use["decades"]
-            and recMedia.get("startDate")
-            and recMedia["startDate"].get("year")
+            and rec_media.get("startDate")
+            and rec_media["startDate"].get("year")
         ):
-            decades = [_getDecadeFromYear(recMedia["startDate"]["year"])]
-            decadeRatings_d = {x["decade"]: x for x in propertyRatings["decades"]}
+            decades = [_get_decade_from_year(rec_media["startDate"]["year"])]
+            decade_ratings_d = {x["decade"]: x for x in property_ratings["decades"]}
             for decade in decades:
-                if decade not in decadeRatings_d:
+                if decade not in decade_ratings_d:
                     continue
-                decadeTotal += decadeRatings_d[decade]["score"]
-                decadeCount += 1
-                if decadeRatings_d[decade]["score"] > originThreshold:
-                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
-                        angleKeys[6], {}
+                decade_total += decade_ratings_d[decade]["score"]
+                decade_count += 1
+                if decade_ratings_d[decade]["score"] > origin_threshold:
+                    rec_origins.setdefault(rec_media["id"], {}).setdefault(
+                        angle_keys[6], {}
                     )[decade] = decade
-        decadeScore = decadeTotal / decadeCount if decadeCount > 0 else userMean
+        decade_score = decade_total / decade_count if decade_count > 0 else user_mean
 
-        genreTotal = 0
-        genreCount = 0
+        genre_total = 0
+        genre_count = 0
         if use["genres"]:
-            genres = recMedia["genres"]
-            genreRatings_d = {x["genre"]: x for x in propertyRatings["genres"]}
+            genres = rec_media["genres"]
+            genre_ratings_d = {x["genre"]: x for x in property_ratings["genres"]}
             for genre in genres:
-                if genre not in genreRatings_d:
+                if genre not in genre_ratings_d:
                     continue
-                genreTotal += genreRatings_d[genre]["score"]
-                genreCount += 1
-                if genreRatings_d[genre]["score"] >= originThreshold:
-                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
-                        angleKeys[5], {}
+                genre_total += genre_ratings_d[genre]["score"]
+                genre_count += 1
+                if genre_ratings_d[genre]["score"] >= origin_threshold:
+                    rec_origins.setdefault(rec_media["id"], {}).setdefault(
+                        angle_keys[5], {}
                     )[genre] = genre
-        genreScore = genreTotal / genreCount if genreCount > 0 else userMean
+        genre_score = genre_total / genre_count if genre_count > 0 else user_mean
 
-        tagTotal = 0
-        tagCount = 0
+        tag_total = 0
+        tag_count = 0
         if use["tags"]:
-            tags = recMedia["tags"]
-            tagRatings_d = {x["tag"]["id"]: x for x in propertyRatings["tags"]}
+            tags = rec_media["tags"]
+            tag_ratings_d = {x["tag"]["id"]: x for x in property_ratings["tags"]}
             for tag in tags:
-                tagId = tag["id"]
-                if tagId not in tagRatings_d:
+                tag_id = tag["id"]
+                if tag_id not in tag_ratings_d:
                     continue
-                tagTotal += tagRatings_d[tagId]["score"] * tag["rank"]
-                tagCount += tag["rank"]
-                if tagRatings_d[tagId]["score"] >= originThreshold:
-                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
-                        angleKeys[2], {}
-                    )[tagId] = tag
-        tagScore = tagTotal / tagCount if tagCount > 0 else userMean
+                tag_total += tag_ratings_d[tag_id]["score"] * tag["rank"]
+                tag_count += tag["rank"]
+                if tag_ratings_d[tag_id]["score"] >= origin_threshold:
+                    rec_origins.setdefault(rec_media["id"], {}).setdefault(
+                        angle_keys[2], {}
+                    )[tag_id] = tag
+        tag_score = tag_total / tag_count if tag_count > 0 else user_mean
 
-        studioTotal = 0
-        studioCount = 0
+        studio_total = 0
+        studio_count = 0
         if use["studios"]:
-            studios = recMedia["studios"]["nodes"]
-            studioRatings_d = {x["studio"]["id"]: x for x in propertyRatings["studios"]}
+            studios = rec_media["studios"]["nodes"]
+            studio_ratings_d = {
+                x["studio"]["id"]: x for x in property_ratings["studios"]
+            }
             for studio in studios:
-                studioId = studio["id"]
-                if studioId not in studioRatings_d:
+                studio_id = studio["id"]
+                if studio_id not in studio_ratings_d:
                     continue
-                studioTotal += studioRatings_d[studioId]["score"]
-                studioCount += 1
-                if studioRatings_d[studioId]["score"] >= originThreshold:
-                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
-                        angleKeys[3], {}
-                    )[studioId] = studio
-        studioScore = studioTotal / studioCount if studioCount > 0 else userMean
+                studio_total += studio_ratings_d[studio_id]["score"]
+                studio_count += 1
+                if studio_ratings_d[studio_id]["score"] >= origin_threshold:
+                    rec_origins.setdefault(rec_media["id"], {}).setdefault(
+                        angle_keys[3], {}
+                    )[studio_id] = studio
+        studio_score = studio_total / studio_count if studio_count > 0 else user_mean
 
-        staffTotal = 0
-        staffCount = 0
+        staff_total = 0
+        staff_count = 0
         if use["staff"]:
-            staffs = recMedia["staff"]["nodes"]
-            staffRatings_d = {x["staff"]["id"]: x for x in propertyRatings["staff"]}
+            staffs = rec_media["staff"]["nodes"]
+            staff_ratings_d = {x["staff"]["id"]: x for x in property_ratings["staff"]}
             for staff in staffs:
-                staffId = staff["id"]
-                if staffId not in staffRatings_d:
+                staff_id = staff["id"]
+                if staff_id not in staff_ratings_d:
                     continue
-                staffTotal += staffRatings_d[staffId]["score"]
-                staffCount += 1
-                if staffRatings_d[staffId]["score"] >= originThreshold:
-                    recOrigins.setdefault(recMedia["id"], {}).setdefault(
-                        angleKeys[4], {}
-                    )[staffId] = staff
-        staffScore = staffTotal / staffCount if staffCount > 0 else userMean
+                staff_total += staff_ratings_d[staff_id]["score"]
+                staff_count += 1
+                if staff_ratings_d[staff_id]["score"] >= origin_threshold:
+                    rec_origins.setdefault(rec_media["id"], {}).setdefault(
+                        angle_keys[4], {}
+                    )[staff_id] = staff
+        staff_score = staff_total / staff_count if staff_count > 0 else user_mean
 
-        finalRecs.append(
+        final_recs.append(
             {
                 "recScore": rec["recScore"]
-                * (tagScore)
-                * (studioScore)
-                * (genreScore)
-                * (staffScore)
-                * (decadeScore),
-                "recMedia": recMedia,
+                * tag_score
+                * studio_score
+                * genre_score
+                * staff_score
+                * decade_score,
+                "recMedia": rec_media,
             }
         )
-    finalRecs.sort(key=lambda x: -x["recScore"])
+    final_recs.sort(key=lambda x: -x["recScore"])
 
-    return finalRecs, recOrigins
+    return final_recs, rec_origins
