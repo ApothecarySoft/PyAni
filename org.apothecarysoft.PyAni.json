@@ -16,6 +16,7 @@
       "name": "pyani",
       "buildsystem": "simple",
       "build-commands": [
+        "pip3 install --prefix=/app \"gql[all]\"",
         "pip3 install --prefix=/app -r requirements.txt",
         "install -D src/mainwindow.py /app/bin/pyani"
       ],
