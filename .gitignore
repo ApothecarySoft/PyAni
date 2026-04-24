@@ -4,3 +4,4 @@
 *.pyc
 
 !requirements.txt
+!org.apothecarysoft.PyAni.json

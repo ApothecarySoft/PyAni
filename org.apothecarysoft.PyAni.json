@@ -1,0 +1,20 @@
+{
+  "app-id": "org.apothecarysoft.PyAni",
+  "runtime": "org.kde.Platform",
+  "runtime-version": "6.6",
+  "sdk": "org.kde.Sdk",
+  "command": "pyani",
+  "modules": [
+    {
+      "name": "pyani",
+      "buildsystem": "simple",
+      "build-commands": [
+        "pip3 install --prefix=/app .",
+        "install -D src/mainwindow.py /app/bin/pyani"
+      ],
+      "sources": [
+        { "type": "dir", "path": "." }
+      ]
+    }
+  ]
+}
