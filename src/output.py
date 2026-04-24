@@ -52,10 +52,12 @@ def writeRecList(finalRecs, origins, userNames):
             mediaFormat = media["format"]
             year = media["startDate"]["year"]
             score = rec["recScore"]
+            mediaType = media["type"]
 
-            f = af if media["type"] == "ANIME" else mf
+            f = af if mediaType == "ANIME" else mf
             
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
+            print(f"\thttps://anilist.co/{mediaType}/{media['id']}", file=f)
 
             if "meanScore" in media:
                 meanScore = media["meanScore"]
