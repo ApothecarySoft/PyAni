@@ -2,6 +2,7 @@ import argparse
 
 from algorithm import generateJointList, getRecommendationList
 from output import writeRecList
+from utils import sanitizeUserName
 
 
 parser = argparse.ArgumentParser()
@@ -42,9 +43,12 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
+sanitizedUserNames = [sanitizeUserName(n) for n in args.userNames]
+args.userNames = None ## these are not unsanitized. make it impossible to use them going forward
 
-for index, userName in enumerate(args.userNames):
+userData = [{"userName": n, "list": [], "origins": {}} for n in sanitizedUserNames]
+
+for index, userName in enumerate(sanitizedUserNames):
     tempList, tempOrigins, tempUserList = getRecommendationList(
         userName=userName,
         use={
@@ -72,7 +76,7 @@ for index, userName in enumerate(args.userNames):
     userData[index]["origins"] = tempOrigins
     userData[index]["userList"] = tempUserList
 
-if len(args.userNames) > 1:
+if len(sanitizedUserNames) > 1:
     rewatch = False
     writeRecList(
         userNames=[d["userName"] for d in userData],

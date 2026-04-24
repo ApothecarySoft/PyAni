@@ -1,3 +1,5 @@
+import json
+
 import constants
 
 
@@ -40,22 +42,29 @@ def _getEnglishTitleOrUserPreferred(title):
     return title["english"] if title["english"] else title["userPreferred"]
 
 
-def writeRecList(finalRecs, origins, userNames):
+def writeRecList(finalRecs, origins, userNames: list[str]):
+    animeRecs = [rec for rec in finalRecs if rec["recMedia"]["type"] == "ANIME"]
+    mangaRecs = [rec for rec in finalRecs if rec["recMedia"]["type"] == "MANGA"]
+    _writeRecListForType(animeRecs, origins, userNames, "ANIME")
+    _writeRecListForType(mangaRecs, origins, userNames, "MANGA")
+
+
+def _writeRecListForType(recsForType, origins, userNames, mediaType):
     fullName = ""
     for userName in userNames:
         fullName += f"{userName}-"
-    with open(f"{fullName}anime-recs.txt", "w", encoding="utf-8") as af, open(f"{fullName}manga-recs.txt", "w", encoding="utf-8") as mf:
-        for rec in finalRecs:
+    filename = f"{fullName}{mediaType.lower()}-recs"
+    with open(f"{filename}.json", "w") as f:
+        json.dump(recsForType, f)
+    with open(f"{filename}.txt", "w", encoding="utf-8") as f:
+        for rec in recsForType:
 
             media = rec["recMedia"]
             title = _getEnglishTitleOrUserPreferred(media["title"])
             mediaFormat = media["format"]
             year = media["startDate"]["year"]
             score = rec["recScore"]
-            mediaType = media["type"]
 
-            f = af if mediaType == "ANIME" else mf
-            
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
             print(f"\thttps://anilist.co/{mediaType}/{media['id']}", file=f)
 
