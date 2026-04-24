@@ -3,7 +3,13 @@
 
 name: Python application
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "main", "develop" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+  pull_request:
+    branches: [ "main", "develop" ]
 
 permissions:
   contents: read
@@ -12,7 +18,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-14] #, ubuntu-latest, windows-latest]
+        os: [macos-14, ubuntu-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -52,16 +58,35 @@ jobs:
             build/*.dist/**/*
           include-hidden-files: true
 
-#  build-flatpak:
-#    name: "Linux Flatpak Build"
-#    runs-on: ubuntu-latest
-#    container:
-#      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-46 # Provides flatpak environment
-#      options: --privileged
-#    steps:
-#      - uses: actions/checkout@v4
-#      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-#        with:
-#          bundle: PyAni.flatpak
-#          manifest-path: org.apothecarysoft.PyAni.json
-#          cache-key: flatpak-builder-${{ github.sha }}
+  build-flatpak:
+    name: "Linux Flatpak Build"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-46 # Provides flatpak environment
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: PyAni.flatpak
+          manifest-path: org.apothecarysoft.PyAni.json
+          cache-key: flatpak-builder-${{ github.sha }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, build-flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-files
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "./release-files/*"
+          generateReleaseNotes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
