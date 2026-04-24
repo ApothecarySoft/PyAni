@@ -1,6 +1,7 @@
 from recommender.algorithm import get_recommendation_list, generate_joint_list
 from recommender.utils import sanitize_user_name, sanitize_user_names_list
 
+
 class NotEnoughDataError(ValueError):
     pass
 
