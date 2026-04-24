@@ -1,113 +1,124 @@
 import os
-from cachefiles import latestValidUserFileOrNew, loadDataFromFile
-from apitools import fetchDataForUser
-import constants
+from recommender.cachefiles import latest_valid_user_file_or_new, loadDataFromFile
+from recommender.apitools import fetchDataForUser
+import recommender.constants as constants
 
 
-def generateJointList(userData):
-    userDicts = [{rec["recMedia"]["id"]: rec for rec in d["list"]} for d in userData]
-    userScores = [
+def generate_joint_list(user_data):
+    user_dicts = [{rec["recMedia"]["id"]: rec for rec in d["list"]} for d in user_data]
+    user_scores = [
         {entry["media"]["id"]: entry["score"] for entry in d["userList"]}
-        for d in userData
+        for d in user_data
     ]
-    dictsUnion = {}
-    for d in userDicts:
-        dictsUnion = dictsUnion | d
+    dicts_union = {}
+    for d in user_dicts:
+        dicts_union = dicts_union | d
 
-    jointList = [value for (key, value) in dictsUnion.items()]
-    for rec in jointList:
+    joint_list = [value for (key, value) in dicts_union.items()]
+    for rec in joint_list:
         score = 0
-        for i, d in enumerate(userDicts):
-            mediaId = rec["recMedia"]["id"]
-            userRating = userScores[i].get(mediaId) or 0
-            if userRating > 0:
-                score += userRating
+        for i, d in enumerate(user_dicts):
+            media_id = rec["recMedia"]["id"]
+            user_rating = user_scores[i].get(media_id) or 0
+            if user_rating > 0:
+                score += user_rating
             else:
-                score += d.get(mediaId, {"recScore": 0})["recScore"]
-        rec["recScore"] = score / len(userDicts)
+                score += d.get(media_id, {"recScore": 0})["recScore"]
+        rec["recScore"] = score / len(user_dicts)
 
-    return jointList
+    return [
+        r
+        for r in sorted(joint_list, key=lambda x: -x["recScore"])
+        if not all(
+            u.get(r["recMedia"]["id"], "") in {"COMPLETED", "REPEATING", "DROPPED"}
+            for u in [
+                {a["media"]["id"]: a["status"] for a in b}
+                for b in [d["userList"] for d in user_data]
+            ]
+        )
+    ]
 
 
-def getRecommendationList(userName, use, refresh):
-    if not userName:
+def get_recommendation_list(user_name, use, refresh):
+    if not user_name:
         return None, None
 
-    userFile = latestValidUserFileOrNew(userName=userName, clean=True)
-    userList = []
+    user_file = latest_valid_user_file_or_new(user_name=user_name, clean=True)
 
-    if refresh or not os.path.exists(userFile):
-        userList = fetchDataForUser(userName)
+    if refresh or not os.path.exists(user_file):
+        user_list = fetchDataForUser(user_name)
     else:
-        userList = loadDataFromFile(userFile)
+        user_list = loadDataFromFile(user_file)
 
-    print(f"loaded {len(userList)} titles for {userName}")
+    print(f"loaded {len(user_list)} titles for {user_name}")
 
-    meanScore = _calculateMeanScore(userList)
+    mean_score = _calculate_mean_score(user_list)
 
-    print(f"{userName} gives a mean score of {meanScore}")
+    print(f"{user_name} gives a mean score of {mean_score}")
 
-    propertyRatings, recommendations, origins = _calculateInitial(
-        userList=userList, meanScore=meanScore
+    property_ratings, recommendations, origins = _calculateInitial(
+        userList=user_list, meanScore=mean_score
     )
 
-    finalRecs, finalOrigins = _calculateBiases(
-        propertyRatings=propertyRatings,
+    final_recs, final_origins = _calculateBiases(
+        propertyRatings=property_ratings,
         recs=recommendations,
         use=use,
         recOrigins=origins,
-        userMean=meanScore,
+        userMean=mean_score,
     )
 
-    if not finalRecs:
-        return [], {}, userList
+    if not final_recs:
+        return [], {}, user_list
 
     exponent = 0.16
-    topScore = (finalRecs[0]["recScore"] + 1) ** exponent
+    top_score = (final_recs[0]["recScore"] + 1) ** exponent
 
-    for rec in finalRecs:
-        rec["recScore"] = round(((rec["recScore"] + 1) ** exponent) / topScore * 100, 2)
+    for rec in final_recs:
+        rec["recScore"] = round(
+            ((rec["recScore"] + 1) ** exponent) / top_score * 100, 2
+        )
 
-    with open(f"{userName}-tags.txt", "w", encoding="utf-8") as f:
-        for tag in propertyRatings["tags"]:
+    with open(f"{user_name}-tags.txt", "w", encoding="utf-8") as f:
+        for tag in property_ratings["tags"]:
             print(f"{tag['tag']['name']}: {tag['score']}%", file=f)
 
-    with open(f"{userName}-studios.txt", "w", encoding="utf-8") as f:
-        for studio in propertyRatings["studios"]:
+    with open(f"{user_name}-studios.txt", "w", encoding="utf-8") as f:
+        for studio in property_ratings["studios"]:
             print(f"{studio['studio']['name']}: {studio['score']}%", file=f)
 
-    with open(f"{userName}-genres.txt", "w", encoding="utf-8") as f:
-        for genre in propertyRatings["genres"]:
+    with open(f"{user_name}-genres.txt", "w", encoding="utf-8") as f:
+        for genre in property_ratings["genres"]:
             print(f"{genre['genre']}: {genre['score']}%", file=f)
 
-    with open(f"{userName}-decades.txt", "w", encoding="utf-8") as f:
-        for decade in propertyRatings["decades"]:
+    with open(f"{user_name}-decades.txt", "w", encoding="utf-8") as f:
+        for decade in property_ratings["decades"]:
             print(f"{decade['decade']}: {decade['score']}%", file=f)
 
-    with open(f"{userName}-staff.txt", "w", encoding="utf-8") as f:
-        for staff in propertyRatings["staff"]:
+    with open(f"{user_name}-staff.txt", "w", encoding="utf-8") as f:
+        for staff in property_ratings["staff"]:
             print(
                 f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f
             )
 
-    return finalRecs, finalOrigins, userList
+    return final_recs, final_origins, user_list
 
 
-def _calculateMeanScore(userList):
-    scoresTotal = 0
-    scoresCount = 0
+def _calculate_mean_score(user_list):
+    scores_total = 0
+    scores_count = 0
 
-    for ratedAni in userList:
+    for ratedAni in user_list:
         score = ratedAni["score"]
         if score <= 0:
             continue
-        scoresTotal += score
-        scoresCount += 1
+        scores_total += score
+        scores_count += 1
 
-    if scoresCount <= 0:
+    if scores_count <= 0:
         return 50
 
-    return scoresTotal / scoresCount
+    return scores_total / scores_count
 
 
 def _calculateAveragePropertyScorePhase1(

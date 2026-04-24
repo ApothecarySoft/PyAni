@@ -2,8 +2,8 @@ import time
 from gql import gql, Client
 from gql.transport.httpx import HTTPXTransport
 from gql.transport.exceptions import TransportQueryError, TransportServerError
-import queries
-from cachefiles import saveUserDataFile
+import recommender.queries as queries
+from recommender.cachefiles import saveUserDataFile
 
 
 def _fetchDataForChunk(client, mediaType: str, chunk: int, userName: str):
