@@ -4,6 +4,11 @@
   "runtime-version": "6.6",
   "sdk": "org.kde.Sdk",
   "command": "pyani",
+  "build-options": {
+    "build-args": [
+      "--share=network"
+    ]
+  },
   "finish-args": [
     "--share=network",
     "--share=ipc",
@@ -16,6 +21,7 @@
       "name": "pyani",
       "buildsystem": "simple",
       "build-commands": [
+        "pip3 install --upgrade pip",
         "pip3 install --prefix=/app \"gql[all]\"",
         "pip3 install --prefix=/app -r requirements.txt",
         "install -D src/mainwindow.py /app/bin/pyani"
