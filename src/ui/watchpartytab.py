@@ -1,11 +1,14 @@
-from PySide6.QtCore import Qt
+from functools import partial
+from math import ceil
+
+from PySide6.QtCore import Qt, Slot, Signal
 from PySide6.QtWidgets import (
     QWidget,
     QTextEdit,
     QLabel,
     QVBoxLayout,
     QPushButton,
-    QHBoxLayout,
+    QHBoxLayout, QSpinBox, QLineEdit,
 )
 
 from recommender.pythonapi import get_watch_party
@@ -23,12 +26,16 @@ class WatchPartyTab(QWidget):
         self.submitButton = QPushButton("Submit")
         self.submitButton.clicked.connect(self.on_submit_clicked)
         self.listWidget = WatchPartyListWidget()
+        self.pageWidget = PageWidget()
+        self.listWidget.PageCountChanged.connect(self.pageWidget.on_page_count_changed)
+        self.pageWidget.PageSelected.connect(self.listWidget.set_page)
 
         layout = QVBoxLayout()
         layout.addWidget(self.descriptionLabel)
         layout.addWidget(self.userNamesEntry)
         layout.addWidget(self.submitButton)
         layout.addWidget(self.listWidget)
+        layout.addWidget(self.pageWidget)
         self.setLayout(layout)
 
     def on_submit_clicked(self):
@@ -46,7 +53,42 @@ class WatchPartyTab(QWidget):
         self.listWidget.set_list(party_list, "ANIME", origins)
 
 
+class PageWidget(QWidget):
+    PageSelected = Signal(int)
+    def __init__(self):
+        super().__init__()
+
+        self.page_count = 0
+        self.max_page_buttons = 10
+        self.page_entry = QLineEdit()
+        self.page_entry.returnPressed.connect(lambda: self.PageSelected.emit(int(self.page_entry.text()) - 1))
+
+    @Slot(int)
+    def on_page_count_changed(self, new_page_count):
+        self.page_count = new_page_count
+
+        layout = QHBoxLayout()
+
+        halfway_point = int(self.max_page_buttons / 2)
+        too_big = self.page_count > self.max_page_buttons
+
+        if too_big:
+            button_nums = [*range(0, halfway_point), *range(self.page_count - halfway_point, self.page_count)]
+        else:
+            button_nums = range(self.page_count)
+
+        for i in button_nums:
+            page_button = QPushButton(f"{i + 1}")
+            page_button.clicked.connect(partial(self.PageSelected.emit, i))
+            layout.addWidget(page_button)
+            if too_big and i + 1 == halfway_point:
+                layout.addWidget(self.page_entry)
+
+        self.setLayout(layout)
+
+
 class WatchPartyListWidget(QWidget):
+    PageCountChanged = Signal(int)
     def __init__(self):
         super().__init__()
 
@@ -54,12 +96,22 @@ class WatchPartyListWidget(QWidget):
         self.origins = None
         self.items_per_page = 5
         self.media_type = None
+        self.list_container = None
+        self.setLayout(QVBoxLayout())
 
+    @Slot(int)
     def set_page(self, page_num) -> bool:
+        print(f"Setting page: {page_num}")
         if self.party_list is None or self.origins is None:
             return False
 
-        layout = QVBoxLayout()
+        if self.list_container:
+            self.list_container.setParent(None)
+            self.list_container.deleteLater()
+
+        self.list_container = QWidget()
+        layout = QVBoxLayout(self.list_container)
+        self.layout().addWidget(self.list_container)
 
         first_item = page_num * self.items_per_page
 
@@ -69,13 +121,13 @@ class WatchPartyListWidget(QWidget):
             )
             layout.addWidget(item_widget)
 
-        self.setLayout(layout)
         return True
 
     def set_list(self, party_list, media_type, origins):
         self.party_list = party_list
         self.origins = origins
         self.media_type = media_type
+        self.PageCountChanged.emit(ceil(len(party_list) / self.items_per_page))
         self.set_page(0)
 
 
@@ -87,11 +139,13 @@ class WatchPartyListItemWidget(QWidget):
 
         self.infoWidget = ItemInfoWidget(media, media_type, origins)
         self.imageWidget = ItemImageWidget()
+        self.scoreWidget = ItemScoreWidget(item["recScore"])
 
         layout = QHBoxLayout()
 
         layout.addWidget(self.imageWidget)
         layout.addWidget(self.infoWidget)
+        layout.addWidget(self.scoreWidget)
 
         self.setLayout(layout)
 
@@ -130,3 +184,26 @@ class ItemImageWidget(QWidget):
 class ItemScoreWidget(QWidget):
     def __init__(self, score):
         super().__init__()
+
+        self.score_label = QLabel(f"{score}% match{'!' if score > 75 else ''}")
+
+        layout = QVBoxLayout()
+
+        layout.addWidget(self.score_label)
+
+        self.setLayout(layout)
+
+        if score > 75:
+            background_color = "green"
+            text_color = "white"
+        elif score > 50:
+            background_color = "yellow"
+            text_color = "black"
+        elif score > 25:
+            background_color = "orange"
+            text_color = "white"
+        else:
+            background_color = "red"
+            text_color = "white"
+
+        self.setStyleSheet(f"background-color: {background_color}; color: {text_color}")
