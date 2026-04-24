@@ -4,12 +4,19 @@
   "runtime-version": "6.6",
   "sdk": "org.kde.Sdk",
   "command": "pyani",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri"
+  ],
   "modules": [
     {
       "name": "pyani",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --prefix=/app .",
+        "pip3 install --prefix=/app -r requirements.txt",
         "install -D src/mainwindow.py /app/bin/pyani"
       ],
       "sources": [
