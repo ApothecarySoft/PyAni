@@ -3,7 +3,7 @@ Generates a list of recommendations based on a public AniList profile.
 Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags.  
 As of right now, anime and manga are grouped together.
 # Prerequisites
-    pip install "gql[all]"
+    pip install -r requirements.txt
 if you don't have it already
 # Usage
 run nextani.py in python3 along with one or more anilist usernames. if you use multiple usernames, it will generate a joint list for all users listed
