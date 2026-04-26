@@ -41,7 +41,6 @@ class FetchProgressDialog(QDialog):
             user_names=user_names, use=use, force_refresh=force_refresh
         )
         self.fetch_thread.ResultSignal.connect(self.on_result)
-        self.fetch_thread.FinishSignal.connect(self.on_finished)
         self.fetch_thread.ProgressSignal.connect(self.on_progress_update)
         self.fetch_thread.StatusSignal.connect(self.on_status_update)
         self.fetch_thread.ErrorSignal.connect(self.on_error)
@@ -66,10 +65,6 @@ class FetchProgressDialog(QDialog):
         print("FetchProgressDialog on_result")
         self.result = result
         self.accept()
-
-    @Slot()
-    def on_finished(self):
-        pass
 
     @Slot(str)
     def on_error(self, error_message):
