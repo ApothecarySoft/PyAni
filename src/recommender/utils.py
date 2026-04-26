@@ -18,7 +18,7 @@ def get_english_title_or_user_preferred(title):
     return title["english"] if title["english"] else title["userPreferred"]
 
 
-_words_to_all_caps = ["TV"]
+_words_to_all_caps = ["TV", "OVA", "ONA"]
 
 
 def clean_format(raw_format):
