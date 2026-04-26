@@ -1,8 +1,8 @@
 import argparse
 
-from algorithm import generate_joint_list, get_recommendation_list
-from output import write_rec_list
-from utils import sanitize_user_name
+from recommender.algorithm import generate_joint_list, get_recommendation_list
+from recommender.output import write_rec_list
+from recommender.utils import sanitize_user_name
 
 
 def run(user_names, use):

@@ -1,6 +1,6 @@
 import json
 
-import constants
+import recommender.constants as constants
 from recommender.utils import get_english_title_or_user_preferred
 
 
