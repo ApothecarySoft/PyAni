@@ -3,6 +3,9 @@ from math import ceil
 
 from PySide6.QtCore import Signal, Slot, Qt
 from PySide6.QtWidgets import (
+    QDialog,
+    QErrorMessage,
+    QProgressBar,
     QWidget,
     QLineEdit,
     QHBoxLayout,
@@ -11,7 +14,68 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
+from recommender.pythonapi import FetchThread
 from recommender.utils import get_english_title_or_user_preferred, clean_format
+
+
+class FetchProgressDialog(QDialog):
+    def __init__(self, parent, user_names, use, force_refresh=False):
+        super().__init__(parent=parent)
+
+        self.statusLabel = QLabel()
+        self.progressBar = QProgressBar()
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.statusLabel)
+        layout.addWidget(self.progressBar)
+
+        self.setLayout(layout)
+
+        self.result = None
+        self.progress = 0
+        self.status = "Fetching data"
+        self.update_window_title()
+
+        self.fetch_thread = FetchThread(
+            user_names=user_names, use=use, force_refresh=force_refresh
+        )
+        self.fetch_thread.ResultSignal.connect(self.on_result)
+        self.fetch_thread.FinishSignal.connect(self.on_finished)
+        self.fetch_thread.ProgressSignal.connect(self.on_progress_update)
+        self.fetch_thread.StatusSignal.connect(self.on_status_update)
+        self.fetch_thread.ErrorSignal.connect(self.on_error)
+        self.fetch_thread.start()
+
+    def update_window_title(self):
+        self.setWindowTitle(f"{self.status} ({self.progress}%)")
+
+    @Slot(str)
+    def on_status_update(self, new_status):
+        self.status = new_status
+        self.statusLabel.setText(self.status)
+        self.update_window_title()
+
+    @Slot(int)
+    def on_progress_update(self, new_progress):
+        self.progress = new_progress
+        self.update_window_title()
+        self.progressBar.setValue(self.progress)
+
+    def on_result(self, result):
+        print("FetchProgressDialog on_result")
+        self.result = result
+        self.accept()
+
+    @Slot()
+    def on_finished(self):
+        pass
+
+    @Slot(str)
+    def on_error(self, error_message):
+        print(f"FetchProgressDialog on_error: {error_message}")
+        error_dialog = QErrorMessage(self)
+        error_dialog.showMessage(error_message)
+        self.reject()
 
 
 class RecommendationListWidget(QWidget):
@@ -112,6 +176,7 @@ class _RecommendationListWidget(QWidget):
         return True
 
     def set_list(self, party_list, media_type, origins):
+        print(f"Setting list with {len(party_list)} items")
         self.party_list = party_list
         self.origins = origins
         self.media_type = media_type

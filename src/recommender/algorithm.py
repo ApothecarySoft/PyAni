@@ -39,19 +39,19 @@ def generate_joint_list(user_data):
     ]
 
 
-def get_recommendation_list(user_name, use, refresh):
+def get_recommendation_list(user_name, use, refresh, status_callback):
     if not user_name:
         return None, None
 
     user_file = latest_valid_user_file_or_new(user_name=user_name, clean=True)
 
     if refresh or not os.path.exists(user_file):
-        user_list = fetch_data_for_user(user_name)
+        user_list = fetch_data_for_user(user_name, status_callback=status_callback)
     else:
         user_list = load_data_from_file(user_file)
 
     print(f"loaded {len(user_list)} titles for {user_name}")
-
+    status_callback(f"Loaded {len(user_list)} titles for {user_name}")
     mean_score = _calculate_mean_score(user_list)
 
     print(f"{user_name} gives a mean score of {mean_score}")
@@ -306,7 +306,7 @@ def _calculate_biases(
 ):
     angle_keys = list(constants.ANGLES.keys())
     final_recs = []
-    origin_threshold = -0.2 + 0.853 * user_mean + (1.49e-3 * (user_mean ** 2))
+    origin_threshold = -0.2 + 0.853 * user_mean + (1.49e-3 * (user_mean**2))
     for rec in recs:
         rec_media = rec["recMedia"]
 

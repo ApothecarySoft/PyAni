@@ -1,13 +1,14 @@
 from PySide6.QtWidgets import (
+    QDialog,
     QWidget,
     QTextEdit,
     QLabel,
     QVBoxLayout,
     QPushButton,
+    QProgressBar,
 )
 
-from recommender.pythonapi import get_watch_party
-from ui.reclistwidget import RecommendationListWidget
+from ui.reclistwidget import FetchProgressDialog, RecommendationListWidget
 
 
 class WatchPartyTab(QWidget):
@@ -30,7 +31,8 @@ class WatchPartyTab(QWidget):
         self.setLayout(layout)
 
     def on_submit_clicked(self):
-        party_list, origins = get_watch_party(
+        fetch_dialog = FetchProgressDialog(
+            parent=self,
             user_names=self.userNamesEntry.toPlainText().split("\n"),
             use={
                 "tags": True,
@@ -38,7 +40,9 @@ class WatchPartyTab(QWidget):
                 "studios": True,
                 "genres": True,
                 "decades": True,
-            },
-            force_refresh=False,
+            }
         )
-        self.listWidget.set_list(party_list, "ANIME", origins)
+        if fetch_dialog.exec() == QDialog.Accepted:
+            print("Fetch dialog accepted")
+            result = fetch_dialog.result
+            self.listWidget.set_list(result[0], "ANIME", result[1])

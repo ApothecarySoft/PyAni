@@ -53,13 +53,14 @@ def _countdown_timer_s(seconds: int):
         seconds -= 1
 
 
-def _fetch_data_for_type(client, media_type: str, user_name: str):
+def _fetch_data_for_type(client, media_type: str, user_name: str, status_callback):
     print(f"fetching data for type {media_type}")
     chunk_num = 0
     has_next_chunk = True
     entries = []
     while has_next_chunk:
         chunk_num += 1
+        status_callback(f"Fetching {media_type} data for {user_name} (chunk {chunk_num})...\nThis may take a while if you have a large list!")
         new_entries, has_next_chunk = _fetch_data_for_chunk(
             client=client, media_type=media_type, chunk=chunk_num, user_name=user_name
         )
@@ -68,15 +69,15 @@ def _fetch_data_for_type(client, media_type: str, user_name: str):
     return entries
 
 
-def fetch_data_for_user(user_name: str):
+def fetch_data_for_user(user_name: str, status_callback):
     print(f"fetching data for user {user_name}")
     transport = HTTPXTransport(url="https://graphql.anilist.co", timeout=120)
     client = Client(transport=transport, fetch_schema_from_transport=False)
     entries = _fetch_data_for_type(
-        client=client, media_type="ANIME", user_name=user_name
+        client=client, media_type="ANIME", user_name=user_name, status_callback=status_callback
     )
     entries += _fetch_data_for_type(
-        client=client, media_type="MANGA", user_name=user_name
+        client=client, media_type="MANGA", user_name=user_name, status_callback=status_callback
     )
 
     save_user_data_file(user_name, entries)
