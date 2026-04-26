@@ -7,18 +7,15 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     tags: [ "v*" ]
   workflow_dispatch:
-  pull_request:
-    branches: [ "main", "develop" ]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
         os: [macos-14, ubuntu-latest, windows-latest]
@@ -62,7 +59,6 @@ jobs:
           include-hidden-files: true
 
   build-flatpak:
-    if: startsWith(github.ref, 'refs/tags/v')
     name: "Linux Flatpak Build"
     runs-on: ubuntu-latest
     container:
@@ -77,7 +73,6 @@ jobs:
           cache-key: flatpak-builder-${{ github.sha }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, build-flatpak]
     runs-on: ubuntu-latest
     permissions:
