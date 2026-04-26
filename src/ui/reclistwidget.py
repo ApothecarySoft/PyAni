@@ -1,10 +1,11 @@
 from functools import partial
 from math import ceil
 
-from PySide6.QtCore import Signal, Slot, QUrl
+from PySide6.QtCore import Signal, Slot, QUrl, Qt
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
+    QGridLayout,
     QMessageBox,
     QProgressBar,
     QWidget,
@@ -98,6 +99,7 @@ class RecommendationListWidget(QWidget):
 
 
 class _PageWidget(QWidget):
+    _PageSelectedInternal = Signal(int)
     PageSelected = Signal(int)
 
     def __init__(self):
@@ -105,16 +107,52 @@ class _PageWidget(QWidget):
 
         self.page_count = 0
         self.max_page_buttons = 10
+        self.current_page = 0
         self.page_entry = QLineEdit()
         self.page_entry.returnPressed.connect(
-            lambda: self.PageSelected.emit(int(self.page_entry.text()) - 1)
+            lambda: self._PageSelectedInternal.emit(int(self.page_entry.text()) - 1)
         )
+        self._PageSelectedInternal.connect(self._on_page_selected)
+        self.page_entry.setText("1")
+        self.page_buttons_container = None
+
+        self.prev_page_button = QPushButton("<-")
+        self.prev_page_button.clicked.connect(lambda: self._PageSelectedInternal.emit(self.current_page - 1))
+        self.next_page_button = QPushButton("->")
+        self.next_page_button.clicked.connect(lambda: self._PageSelectedInternal.emit(self.current_page + 1))
+
+        layout = QHBoxLayout()
+
+        layout.addWidget(self.prev_page_button)
+        layout.addWidget(self.next_page_button)
+
+        self.setLayout(layout)
+
+        self.setVisible(False)
+
+    @Slot(int)
+    def _on_page_selected(self, page_num):
+        if 0 <= page_num <= self.page_count - 1:
+            self.current_page = page_num
+            self.PageSelected.emit(page_num)
+        self.page_entry.setText(str(self.current_page + 1))
 
     @Slot(int)
     def on_page_count_changed(self, new_page_count):
         self.page_count = new_page_count
+        self.setVisible(self.page_count >= 1)
 
-        layout = QHBoxLayout()
+        if self.page_buttons_container:
+            self.page_buttons_container.setParent(None)
+            self.page_buttons_container.deleteLater()
+
+        self.page_buttons_container = QWidget()
+        layout = QHBoxLayout(self.page_buttons_container)
+        base_layout = self.layout()
+        if isinstance(base_layout, QHBoxLayout):
+            base_layout.insertWidget(1, self.page_buttons_container)
+        else:
+            raise RuntimeError("Wrong layout type")
 
         halfway_point = int(self.max_page_buttons / 2)
         too_big = self.page_count > self.max_page_buttons
@@ -129,7 +167,8 @@ class _PageWidget(QWidget):
 
         for i in button_nums:
             page_button = QPushButton(f"{i + 1}")
-            page_button.clicked.connect(partial(self.PageSelected.emit, i))
+            page_button.clicked.connect(partial(self._PageSelectedInternal.emit, i))
+            page_button.setMaximumWidth(30)
             layout.addWidget(page_button)
             if too_big and i + 1 == halfway_point:
                 layout.addWidget(self.page_entry)
@@ -189,37 +228,35 @@ class _RecommendationItemWidget(QWidget):
 
         media = item["recMedia"]
 
-        self.infoWidget = ItemInfoWidget(media, media_type, origins)
+        self.nameWidget = _ItemNameWidget(media, media_type, origins)
         self.imageWidget = _ItemImageWidget()
         self.scoreWidget = _ItemScoreWidget(item["recScore"])
+        self.openAnilistButton = QPushButton("Open AniList page")
+        self.openAnilistButton.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"https://anilist.co/{media_type.lower()}/{media['id']}")))
 
-        layout = QHBoxLayout()
+        layout = QGridLayout()
 
-        layout.addWidget(self.imageWidget)
-        layout.addWidget(self.infoWidget)
-        layout.addWidget(self.scoreWidget)
+        layout.addWidget(self.imageWidget, 0, 0, 3, 1)
+        layout.addWidget(self.nameWidget, 0, 1, 2, 1)
+        layout.addWidget(self.scoreWidget, 2, 1)
+        layout.addWidget(self.openAnilistButton, 0, 2, 3, 1)
 
         self.setLayout(layout)
 
 
-class ItemInfoWidget(QWidget):
+class _ItemNameWidget(QWidget):
     def __init__(self, media, media_type, origins):
         super().__init__()
 
         title = get_english_title_or_user_preferred(media["title"])
         media_format = media["format"]
         year = media["startDate"]["year"]
-        url = f"https://anilist.co/{media_type.lower()}/{media['id']}"
 
-        self.titleLabel = QLabel()
-        self.titleLabel.setText(f"{title} ({clean_format(media_format)}, {year})")
-
-        self.openAnilistButton = QPushButton("Open AniList page")
-        self.openAnilistButton.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+        self.titleLabel = QLabel(f"{title} ({clean_format(media_format)}, {year})")
+        self.titleLabel.setWordWrap(True)
 
         layout = QVBoxLayout()
         layout.addWidget(self.titleLabel)
-        layout.addWidget(self.openAnilistButton)
 
         self.setLayout(layout)
 
