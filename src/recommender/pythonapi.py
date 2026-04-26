@@ -16,7 +16,7 @@ class FetchThread(QThread):
 
     def __init__(self, user_names, use, force_refresh=False):
         super().__init__()
-        self.user_names = user_names
+        self.user_names = sanitize_user_names_list(user_names)
         self.use = use
         self.force_refresh = force_refresh
         self.result = None
@@ -32,6 +32,8 @@ class FetchThread(QThread):
                     force_refresh=self.force_refresh,
                 )
             elif len(self.user_names) == 1:
+                if self.user_names[0] == "":
+                    raise NotEnoughDataError("At least one username is required")
                 self.result = _get_what_to_watch(
                     user_name=self.user_names[0],
                     use=self.use,

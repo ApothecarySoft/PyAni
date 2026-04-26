@@ -1,10 +1,11 @@
 from functools import partial
 from math import ceil
 
-from PySide6.QtCore import Signal, Slot, Qt
+from PySide6.QtCore import Signal, Slot, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
-    QErrorMessage,
+    QMessageBox,
     QProgressBar,
     QWidget,
     QLineEdit,
@@ -73,8 +74,11 @@ class FetchProgressDialog(QDialog):
     @Slot(str)
     def on_error(self, error_message):
         print(f"FetchProgressDialog on_error: {error_message}")
-        error_dialog = QErrorMessage(self)
-        error_dialog.showMessage(error_message)
+        error_box = QMessageBox()
+        error_box.setIcon(QMessageBox.Critical)
+        error_box.setText(error_message)
+        error_box.setWindowTitle("Error")
+        error_box.exec()
         self.reject()
 
 
@@ -213,18 +217,14 @@ class ItemInfoWidget(QWidget):
         url = f"https://anilist.co/{media_type.lower()}/{media['id']}"
 
         self.titleLabel = QLabel()
-        self.titleLabel.setText(
-            f'<a href="{url}">{title} ({clean_format(media_format)}, {year})</a>'
-        )
-        self.titleLabel.setOpenExternalLinks(True)
-        self.titleLabel.setTextFormat(Qt.RichText)
-        self.titleLabel.setTextInteractionFlags(
-            Qt.TextBrowserInteraction | Qt.LinksAccessibleByMouse
-        )
+        self.titleLabel.setText(f"{title} ({clean_format(media_format)}, {year})")
+
+        self.openAnilistButton = QPushButton("Open AniList page")
+        self.openAnilistButton.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
 
         layout = QVBoxLayout()
-
         layout.addWidget(self.titleLabel)
+        layout.addWidget(self.openAnilistButton)
 
         self.setLayout(layout)
 
