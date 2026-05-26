@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=AniList Toolkit
+Comment=Helpful AniList tools.
+Exec=pyani
+Icon=org.apothecarysoft.PyAni
+Terminal=false
+Categories=Utility;Qt;

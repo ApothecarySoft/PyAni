@@ -2,5 +2,15 @@
 *.json
 *.txt
 *.pyc
+.idea/*
 
 !requirements.txt
+!org.apothecarysoft.PyAni.json
+mainwindow.dist/
+
+.flatpak-builder/**
+build-dir/**
+flatpak-build/**
+build/**
+
+*egg-info/**

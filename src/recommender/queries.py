@@ -1,6 +1,6 @@
-def userListQuery():
+def user_list_query():
     return f"""query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {{
-    MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 60) {{
+    MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 20) {{
       hasNextChunk
       lists {{
         name
@@ -44,6 +44,7 @@ def userListQuery():
                 rating
                 mediaRecommendation {{
                   id
+                  type
                   title {{
                     english
                     userPreferred
@@ -74,6 +75,9 @@ def userListQuery():
                     rank
                     name
                   }}
+                  coverImage {{
+                    medium
+                  }}
                 }}
               }}
             }}
@@ -82,6 +86,34 @@ def userListQuery():
       }}
     }}
   }}"""
+
+
+hunter_query = """
+query($status: [MediaStatus], $sort: [MediaSort], $tag: String, $page: Int) {
+  Page(page: $page) {
+    pageInfo {
+      hasNextPage
+    }
+    media(status_in: $status, sort: $sort, tag: $tag) {
+      id
+      type
+      format
+      coverImage {
+        medium
+      }
+      title {
+        english
+        userPreferred
+      }
+      tags {
+        id
+        name
+        rank
+      }
+    }
+  }
+}
+"""
 
 
 # def userMeanScoresQuery():
@@ -100,20 +132,20 @@ def userListQuery():
 
 
 # def userQuery(username, pageNum, mediaType):
-#     return f"""query {{\n  
-#                   Page(page: {pageNum}) {{\n  
-#                     users(name: \"{username}\") {{\n  
-#                       id\n  
-#                       statistics {{\n  
-#                         {mediaType} {{\n  
-#                           scores (sort: MEAN_SCORE_DESC) {{\n  
-#                             score\n  
-#                             mediaIds\n  
-#                           }}\n  
-#                         }}\n  
-#                       }}\n  
-#                     }}\n  
-#                   }}\n  
+#     return f"""query {{\n
+#                   Page(page: {pageNum}) {{\n
+#                     users(name: \"{username}\") {{\n
+#                       id\n
+#                       statistics {{\n
+#                         {mediaType} {{\n
+#                           scores (sort: MEAN_SCORE_DESC) {{\n
+#                             score\n
+#                             mediaIds\n
+#                           }}\n
+#                         }}\n
+#                       }}\n
+#                     }}\n
+#                   }}\n
 #                 }}"""
 
 

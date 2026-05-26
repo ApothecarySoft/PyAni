@@ -1,7 +1,45 @@
 import argparse
 
-from algorithm import generateJointList, getRecommendationList
-from output import writeRecList
+from recommender.algorithm import generate_joint_list, get_recommendation_list
+from recommender.output import write_rec_list
+from recommender.utils import sanitize
+
+
+def run(user_names, use):
+    sanitized_user_names = [sanitize(n) for n in user_names]
+
+    user_data = [
+        {"userName": n, "list": [], "origins": {}} for n in sanitized_user_names
+    ]
+
+    for index, userName in enumerate(sanitized_user_names):
+        temp_list, temp_origins, temp_user_list = get_recommendation_list(
+            user_name=userName,
+            use=use,
+            refresh=args.refresh,
+        )
+        write_rec_list(
+            user_names=[userName],
+            final_recs=[
+                rec
+                for rec in sorted(temp_list, key=lambda x: -x["recScore"])
+                if not {a["media"]["id"]: a["status"] for a in temp_user_list}.get(
+                    rec["recMedia"]["id"], ""
+                )
+                in {"COMPLETED", "REPEATING", "DROPPED"}
+            ],
+            origins=[temp_origins],
+        )
+        user_data[index]["list"] = temp_list
+        user_data[index]["origins"] = temp_origins
+        user_data[index]["userList"] = temp_user_list
+
+    if len(sanitized_user_names) > 1:
+        write_rec_list(
+            user_names=[d["userName"] for d in user_data],
+            final_recs=generate_joint_list(user_data=user_data),
+            origins=[d["origins"] for d in user_data],
+        )
 
 
 parser = argparse.ArgumentParser()
@@ -42,53 +80,13 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-userData = [{"userName": n, "list": [], "origins": {}} for n in args.userNames]
-
-for index, userName in enumerate(args.userNames):
-    tempList, tempOrigins, tempUserList = getRecommendationList(
-        userName=userName,
-        use={
-            "tags": args.tags,
-            "staff": args.staff,
-            "studios": args.studios,
-            "genres": args.genres,
-            "decades": True,
-        },
-        refresh=args.refresh,
-    )
-    writeRecList(
-        userNames=[userName],
-        finalRecs=[
-            rec
-            for rec in sorted(tempList, key=lambda x: -x["recScore"])
-            if not {a["media"]["id"]: a["status"] for a in tempUserList}.get(
-                rec["recMedia"]["id"], ""
-            )
-            in {"COMPLETED", "REPEATING", "DROPPED", "CURRENT"}
-        ],
-        origins=[tempOrigins],
-    )
-    userData[index]["list"] = tempList
-    userData[index]["origins"] = tempOrigins
-    userData[index]["userList"] = tempUserList
-
-if len(args.userNames) > 1:
-    rewatch = False
-    writeRecList(
-        userNames=[d["userName"] for d in userData],
-        finalRecs=[
-            r
-            for r in sorted(
-                generateJointList(userData=userData), key=lambda x: -x["recScore"]
-            )
-            if rewatch
-            or not all(
-                u.get(r["recMedia"]["id"], "") in {"COMPLETED", "REPEATING", "DROPPED"}
-                for u in [
-                    {a["media"]["id"]: a["status"] for a in b}
-                    for b in [d["userList"] for d in userData]
-                ]
-            )
-        ],
-        origins=[d["origins"] for d in userData],
-    )
+run(
+    args.userNames,
+    use={
+        "tags": args.tags,
+        "staff": args.staff,
+        "studios": args.studios,
+        "genres": args.genres,
+        "decades": True,
+    },
+)

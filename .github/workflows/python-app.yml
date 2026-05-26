@@ -7,21 +7,26 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     tags: [ "v*" ]
   workflow_dispatch:
-  pull_request:
-    branches: [ "main", "develop" ]
+
+#on:
+#  push:
+#    branches: [ "main", "develop" ]
+#    tags: [ "v*" ]
+#  workflow_dispatch:
+#  pull_request:
+#    branches: [ "main", "develop" ]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
-        os: [macos-14, ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, windows-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -61,24 +66,39 @@ jobs:
             build/*.dist/**/*
           include-hidden-files: true
 
-  build-flatpak:
-    if: startsWith(github.ref, 'refs/tags/v')
-    name: "Linux Flatpak Build"
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-46 # Provides flatpak environment
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v4
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: PyAni.flatpak
-          manifest-path: org.apothecarysoft.PyAni.json
-          cache-key: flatpak-builder-${{ github.sha }}
+#  flatpak-build:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+#
+#      - name: Install Flatpak and Builder
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y flatpak flatpak-builder
+#
+#      - name: Set up Flathub
+#        run: |
+#          flatpak remote-add --user --if-not-exists flathub https://flathub.org
+#          flatpak install --user -y flathub org.gnome.Sdk//45 org.gnome.Platform//45
+#
+#      - name: Build Flatpak Application
+#        run: |
+#          flatpak-builder --user --repo=repo --force-clean build-dir org.flatpak.PySide6App.json
+#
+#      - name: Create Flatpak Bundle
+#        run: |
+#          flatpak build-bundle repo pyside6-app.flatpak org.flatpak.PySide6App
+#
+#      - name: Upload Flatpak Artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: flatpak-package
+#          path: pyside6-app.flatpak
+#          retention-days: 7
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, build-flatpak]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

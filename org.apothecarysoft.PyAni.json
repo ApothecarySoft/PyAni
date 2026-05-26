@@ -1,0 +1,45 @@
+{
+  "app-id": "org.apothecarysoft.PyAni",
+  "runtime": "org.kde.Platform",
+  "runtime-version": "6.10",
+  "sdk": "org.kde.Sdk",
+  "base": "io.qt.PySide.BaseApp",
+  "base-version": "6.7",
+  "command": "pyani",
+  "build-options": {
+    "build-args": [
+      "--share=network"
+    ]
+  },
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri",
+    "--filesystem=home",
+    "--talk-name=org.freedesktop.portal.Desktop"
+  ],
+  "modules": [
+    {
+      "name": "pyani",
+      "buildsystem": "simple",
+      "build-commands": [
+        "mkdir -p /app/share/pyani",
+        "cp -r src/* /app/share/pyani/",
+        "pip3 install --no-deps --target=/app/lib/python3.11/site-packages .",
+        "mkdir -p /app/bin",
+        "echo '#!/bin/sh' > /app/bin/pyani",
+        "echo 'export PYTHONPATH=/app/lib/python3.11/site-packages:$PYTHONPATH' >> /app/bin/pyani",
+        "echo 'python3 -m pyani' >> /app/bin/pyani",
+        "chmod +x /app/bin/pyani"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "."
+        }
+      ]
+    }
+  ]
+}

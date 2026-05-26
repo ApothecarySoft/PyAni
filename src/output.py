@@ -1,7 +1,9 @@
+import json
+
 import constants
 
 
-def generateOriginStringForType(media, origins, userName=None):
+def _generateOriginStringForType(media, origins, userName=None):
     string = f"\t{userName}\n" if userName else ""
     for angle, text in constants.ANGLES.items():
         if media["id"] not in origins:
@@ -22,7 +24,7 @@ def generateOriginStringForType(media, origins, userName=None):
                 return string + "\n"
             name = ""
             if "title" in origin:
-                name = getEnglishTitleOrUserPreferred(origin["title"])
+                name = _getEnglishTitleOrUserPreferred(origin["title"])
             elif "name" in origin:
                 name = (
                     origin["name"]
@@ -36,23 +38,35 @@ def generateOriginStringForType(media, origins, userName=None):
     return string
 
 
-def getEnglishTitleOrUserPreferred(title):
+def _getEnglishTitleOrUserPreferred(title):
     return title["english"] if title["english"] else title["userPreferred"]
 
 
-def writeRecList(finalRecs, origins, userNames):
+def writeRecList(finalRecs, origins, userNames: list[str]):
+    animeRecs = [rec for rec in finalRecs if rec["recMedia"]["type"] == "ANIME"]
+    mangaRecs = [rec for rec in finalRecs if rec["recMedia"]["type"] == "MANGA"]
+    _writeRecListForType(animeRecs, origins, userNames, "ANIME")
+    _writeRecListForType(mangaRecs, origins, userNames, "MANGA")
+
+
+def _writeRecListForType(recsForType, origins, userNames, mediaType):
     fullName = ""
     for userName in userNames:
         fullName += f"{userName}-"
-    with open(f"{fullName}recs.txt", "w", encoding="utf-8") as f:
-        for rec in finalRecs:
+    filename = f"{fullName}{mediaType.lower()}-recs"
+    with open(f"{filename}.json", "w") as f:
+        json.dump(recsForType, f)
+    with open(f"{filename}.txt", "w", encoding="utf-8") as f:
+        for rec in recsForType:
 
             media = rec["recMedia"]
-            title = getEnglishTitleOrUserPreferred(media["title"])
+            title = _getEnglishTitleOrUserPreferred(media["title"])
             mediaFormat = media["format"]
             year = media["startDate"]["year"]
             score = rec["recScore"]
+
             print(f"{title} ({mediaFormat}, {year}): {score}%", file=f)
+            print(f"\thttps://anilist.co/{mediaType}/{media['id']}", file=f)
 
             if "meanScore" in media:
                 meanScore = media["meanScore"]
@@ -60,7 +74,7 @@ def writeRecList(finalRecs, origins, userNames):
 
             for i in range(len(userNames)):
                 print(
-                    generateOriginStringForType(
+                    _generateOriginStringForType(
                         media=media, origins=origins[i], userName=userNames[i]
                     ),
                     file=f,
