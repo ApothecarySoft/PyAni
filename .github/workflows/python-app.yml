@@ -9,6 +9,8 @@ on:
   push:
     branches: [ "main" ]
     tags: [ "v*" ]
+  pull_request:
+    branches: [ "main", "develop" ]
   workflow_dispatch:
 
 #on:
@@ -100,6 +102,7 @@ jobs:
   release:
     needs: [build]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'ref/tags/')
     permissions:
       contents: write
     steps:
