@@ -34,8 +34,8 @@ class MainView(QTabWidget):
         self.addTab(WhatToWatchTab(), "What To Watch")
         self.addTab(AniHunterTab(), "AniHunter")
 
-
-app = QApplication(sys.argv)
-window = MainWindow()
-window.show()
-app.exec()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

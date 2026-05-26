@@ -11,3 +11,6 @@ mainwindow.dist/
 .flatpak-builder/**
 build-dir/**
 flatpak-build/**
+build/**
+
+*egg-info/**

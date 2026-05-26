@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=80.10.2", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyani"
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+    "gql==4.0.0",
+    "httpx==0.28.1",
+    "pyside6-essentials==6.11.1",
+]
+
+[tool.pyside6-project]
+files = ["src/mainwindow.py"]
+
+[tool.setuptools_scm]
