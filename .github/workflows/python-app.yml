@@ -108,9 +108,21 @@ jobs:
         with:
           path: ./release-files
 
+      - name: Zip OS Artifact Directories
+        run: |
+          cd ./release-files
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              dirname=$(basename "$dir")
+              echo "Zipping directory: $dirname"
+              zip -r "${dirname}.zip" "$dir"
+            fi
+          done
+        shell: bash
+
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "./release-files/**/*"
+          artifacts: "./release-files/*.zip"
           generateReleaseNotes: true
           token: ${{ secrets.GITHUB_TOKEN }}
