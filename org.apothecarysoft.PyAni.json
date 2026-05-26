@@ -1,8 +1,10 @@
 {
   "app-id": "org.apothecarysoft.PyAni",
   "runtime": "org.kde.Platform",
-  "runtime-version": "6.6",
+  "runtime-version": "6.10",
   "sdk": "org.kde.Sdk",
+  "base": "io.qt.PySide.BaseApp",
+  "base-version": "6.10",
   "command": "pyani",
   "build-options": {
     "build-args": [
@@ -14,20 +16,29 @@
     "--share=ipc",
     "--socket=fallback-x11",
     "--socket=wayland",
-    "--device=dri"
+    "--device=dri",
+    "--filesystem=home",
+    "--talk-name=org.freedesktop.portal.Desktop"
   ],
   "modules": [
     {
       "name": "pyani",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --upgrade pip",
-        "pip3 install --prefix=/app \"gql[all]\"",
-        "pip3 install --prefix=/app -r requirements.txt",
-        "install -D src/mainwindow.py /app/bin/pyani"
+        "mkdir -p /app/bin /app/libexec/pyside6app /app/share/applications",
+        "pip install --prefix=/app -r requirements.txt",
+        "mkdir -p /app/bin /app/libexec/pyani",
+        "cp -r * /app/libexec/pyani/",
+        "echo '#!/bin/sh' > /app/bin/pyani",
+        "echo 'exec python3 /app/libexec/pyani/src/mainwindow.py \"$@\"' >> /app/bin/pyani",
+        "chmod +x /app/bin/pyani",
+        "cp /app/libexec/pyani/org.apothecarysoft.PyAni.desktop /app/share/applications/"
       ],
       "sources": [
-        { "type": "dir", "path": "." }
+        {
+          "type": "dir",
+          "path": "."
+        }
       ]
     }
   ]

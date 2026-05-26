@@ -7,3 +7,7 @@
 !requirements.txt
 !org.apothecarysoft.PyAni.json
 mainwindow.dist/
+
+.flatpak-builder/**
+build-dir/**
+flatpak-build/**
