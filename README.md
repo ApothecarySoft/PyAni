@@ -28,10 +28,11 @@ You may need to `sudo chmod +x mainwindow.bin` first
 ### Windows:
 Double click mainwindow.exe \
 You may need to click past Windows Smart Screen
-# It isn't working!
+# FAQ
+## It isn't working!
 Create an issue here in GitHub so I can address it please!
-# Why is it so slow?!
+## Why is it so slow?!
 Anilist rate limits their API pretty strictly so fetching data from the server can take 5-10 minutes  
 data is cached locally for 2 days, though, so subsequent runs are quicker within that time
-# The AniList API is down!
+## The AniList API is down!
 Literally nothing I can do about that. I am not an AniList developer.
