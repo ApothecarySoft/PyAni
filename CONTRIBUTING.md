@@ -15,7 +15,7 @@ If you discover a bug, please open an issue on GitHub with:
 
 ### Suggesting Enhancements
 
-We'd love to hear your ideas for improving PyAni! Please open an issue with:
+I'd love to hear your ideas for improving PyAni! Please open an issue with:
 - A clear description of the enhancement
 - Why you think it would be useful
 - Any relevant examples or mockups
