@@ -102,7 +102,7 @@ jobs:
   release:
     needs: [build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'ref/tags/')
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     steps:
