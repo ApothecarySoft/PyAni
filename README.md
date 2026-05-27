@@ -6,12 +6,12 @@ Currently uses Anilist's crowdsourced recommendations as the core source, also t
 As of right now, anime and manga are grouped together.
 ## AniHunter
 Finds upcoming releases that contain one or more of your favorite tags. Remembers what it showed you and won't resurface the same media again unless it gains another relevant tag.
-# Prerequisites
+# Usage
+## I cloned the repo
+### Prerequisites
 ```bash
 pip install -r requirements.txt
 ```
-# Usage
-## I cloned the repo
 run mainwindow.py in python3
 ### Linux/Mac
 ```bash
