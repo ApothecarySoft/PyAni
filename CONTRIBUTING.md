@@ -1,6 +1,6 @@
 # Contributing to PyAni
 
-Thank you for your interest in contributing to PyAni! We welcome contributions from the community and are excited to work with you.
+Thank you for your interest in contributing to PyAni! I'm just doing this as a hobby project so I'll take the help!
 
 ## How to Contribute
 
@@ -33,52 +33,42 @@ We'd love to hear your ideas for improving PyAni! Please open an issue with:
    git checkout -b feature/your-feature-name
    ```
 4. **Make Your Changes**: Implement your feature or fix
-5. **Test Your Changes**: Ensure all tests pass and add new tests if needed
-6. **Commit Your Changes**:
+5. **Commit Your Changes**:
    ```bash
    git commit -m "Add a clear, descriptive commit message"
    ```
-7. **Push to Your Fork**:
+6. **Push to Your Fork**:
    ```bash
    git push origin feature/your-feature-name
    ```
-8. **Open a Pull Request**: Go to the original repository and click "New Pull Request"
+7. **Open a Pull Request**: Go to the original repository and click "New Pull Request"
 
 ### Pull Request Guidelines
 
 - Provide a clear title and description
 - Reference any related issues (e.g., "Fixes #123")
 - Keep commits focused and logical
-- Update documentation if your changes affect user-facing functionality
-- Ensure your code follows the project's style conventions
 
 ## Development Setup
 
 1. Clone the repository
 2. Create a virtual environment:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 3. Install development dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-4. Run tests to verify your setup
 
 ## Code Style
 
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) guidelines
+- Try to follow general Python best practices
 - Use clear and descriptive variable names
 - Add docstrings to functions and classes
 - Keep functions focused and modular
-
-## Questions?
-
-If you have questions or need help, please feel free to:
-- Open an issue on GitHub
-- Check existing documentation
-- Look at past discussions and pull requests
+- Format code using `black`
 
 ## License
 
