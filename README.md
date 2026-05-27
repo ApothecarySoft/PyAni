@@ -36,3 +36,5 @@ Anilist rate limits their API pretty strictly so fetching data from the server c
 data is cached locally for 2 days, though, so subsequent runs are quicker within that time
 ## The AniList API is down!
 Literally nothing I can do about that. I am not an AniList developer.
+## I would like to integrate one of your tools into my own app!
+You're free to use bits and pieces of my code including porting my logic to other languages. Please make sure to follow all terms of the GPLv3 license while doing so. Also, while you aren't required to credit me, it would be appreciated!
