@@ -1,9 +1,9 @@
 # AniList Toolkit
 A helpful desktop application with utilities to enhance your AniList and anime watching experience!
 ## What To Watch
-Generates a list of recommendations based on a public AniList profile.  
-Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags.  
-As of right now, anime and manga are grouped together.
+Generates a list of recommendations based on one or more public AniList profiles. If you use multiple you'll get a joint list, sort of like a Spotify Blend but for anime! \
+Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags. \
+As of right now, anime and manga are grouped together. \
 ## AniHunter
 Finds upcoming releases that contain one or more of your favorite tags. Remembers what it showed you and won't resurface the same media again unless it gains another relevant tag.
 # Usage
