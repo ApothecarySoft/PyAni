@@ -1,22 +1,35 @@
-# PyAni
+# AniList Toolkit
+A helpful desktop application with utilities to enhance your AniList and anime watching experience!
+## What To Watch
 Generates a list of recommendations based on a public AniList profile.  
 Currently uses Anilist's crowdsourced recommendations as the core source, also taking into account the user's own ratings and common tags.  
 As of right now, anime and manga are grouped together.
+## AniHunter
+Finds upcoming releases that contain one or more of your favorite tags. Remembers what it showed you and won't resurface the same media again unless it gains another relevant tag.
 # Prerequisites
-    pip install -r requirements.txt
-if you don't have it already
+```bash
+pip install -r requirements.txt
+```
 # Usage
-run nextani.py in python3 along with one or more anilist usernames. if you use multiple usernames, it will generate a joint list for all users listed
+## I cloned the repo
+run mainwindow.py in python3
+### Linux/Mac
+```bash
+python3 src/mainwindow.py
 ```
-python3 src/nextani.py [-rhtsfg] username1 [username2]...
+### Windows
+```pwsh
+python src\mainwindow.py
 ```
-supports optional flags
-- -r to force refresh from the server
-- -h to display help
-- -t to take tags into account
-- -s to take studios into account
-- -f to take staff into account 
-- -g to take genres into account 
+## I downloaded a release
+### Linux:
+Double click mainwindow.bin or run `./mainwindow.bin` in the terminal \
+You may need to `sudo chmod +x mainwindow.bin` first
+### Windows:
+Double click mainwindow.exe \
+You may need to click past Windows Smart Screen
+# It isn't working!
+Create an issue here in GitHub so I can address it please!
 # AniList is mean
 they rate limit their API pretty strictly so fetching data from the server can take 5-10 minutes  
-data is cached locally for 2 days, though, so subsequent runs are quicker unless you force refresh
+data is cached locally for 2 days, though, so subsequent runs are quicker within that time
