@@ -70,6 +70,25 @@ I'd love to hear your ideas for improving PyAni! Please open an issue with:
 - Keep functions focused and modular
 - Format code using `black`
 
+### Using Black
+
+First, install Black:
+```bash
+pip install black
+```
+
+Then format your code with Black, run:
+```bash
+black .
+```
+
+Or to format specific files:
+```bash
+black path/to/file.py
+```
+
+Black will automatically format your code to follow PEP 8 style guidelines. For more information, visit the [Black documentation](https://black.readthedocs.io/).
+
 ## License
 
 By contributing to PyAni, you agree that your contributions will be licensed under the same license as the project.
