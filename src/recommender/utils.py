@@ -6,12 +6,7 @@ def sanitize(string: str):
 
 
 def sanitize_list(string_list: list):
-    sanitized_user_names_list = []
-    for n in string_list:
-        s = sanitize(n)
-        if s != "":
-            sanitized_user_names_list.append(s)
-    return sanitized_user_names_list
+    return [s for s in string_list if (s := sanitize(s))]
 
 
 def get_english_title_or_user_preferred(title):

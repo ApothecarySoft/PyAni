@@ -1,4 +1,6 @@
 import time
+from typing import Any
+
 from gql import gql, Client
 from gql.transport.httpx import HTTPXTransport
 from gql.transport.exceptions import TransportQueryError, TransportServerError
@@ -6,7 +8,7 @@ import recommender.queries as queries
 from recommender.cachefiles import save_cache_file
 
 
-def _do_request(variable_values, query, cd_progress_callback, cd_callback):
+def _do_request(variable_values, query, cd_progress_callback, cd_callback) -> dict[str, Any] | None:
     result = None
     max_retries = 3
     retries = 0
