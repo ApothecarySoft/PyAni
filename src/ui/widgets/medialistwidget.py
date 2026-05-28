@@ -51,6 +51,7 @@ class FetchProgressDialog(QDialog):
         self.fetch_thread.ProgressSignal.connect(self.on_progress_update)
         self.fetch_thread.StatusSignal.connect(self.on_status_update)
         self.fetch_thread.ErrorSignal.connect(self.on_error)
+        self.fetch_thread.CooldownSignal.connect(self.on_cooldown)
         self.fetch_thread.start()
 
     def update_window_title(self):
@@ -81,6 +82,40 @@ class FetchProgressDialog(QDialog):
         error_box.exec()
         self.reject()
 
+    @Slot(str)
+    def on_cooldown(self, cooldown_message):
+        cooldown_dialog = CooldownProgressDialog(parent=self, cooldown_message=cooldown_message)
+        self.fetch_thread.CooldownProgressSignal.connect(cooldown_dialog.on_cooldown_progress)
+        cooldown_dialog.exec()
+
+
+class CooldownProgressDialog(QDialog):
+    def __init__(self, parent, cooldown_message):
+        super().__init__(parent=parent)
+
+        self.setWindowTitle("Cooldown")
+
+        self.messageLabel = QLabel(cooldown_message)
+        self.progressBar = QProgressBar()
+        self.progressBar.setMaximum(100)
+        self.progressBar.setValue(0)
+        self.maximum = None
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.messageLabel)
+        layout.addWidget(self.progressBar)
+        self.setLayout(layout)
+
+    @Slot(int)
+    def on_cooldown_progress(self, seconds):
+        if seconds <= 1:
+            self.accept()
+
+        if self.maximum is None:
+            self.maximum = seconds
+            self.progressBar.setMaximum(seconds)
+
+        self.progressBar.setValue(self.maximum - seconds + 1)
 
 class PaginatedListWidget(QWidget):
     def __init__(self, make_media_view):
