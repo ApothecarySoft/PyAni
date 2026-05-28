@@ -34,6 +34,10 @@ def _do_request(variable_values, query, status_callback):
                     )
                 elif error_code == 403:
                     raise RuntimeError(f"Query failed: {error_message}")
+                elif error_code == 404:
+                    raise RuntimeError(
+                        f"Query failed. {variable_values.get('name', variable_values.get('tag'))}: {error_message}"
+                    )
                 else:
                     print(
                         f"unhandled http error {error_code}. trying again in 10 seconds"

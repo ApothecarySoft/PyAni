@@ -1,3 +1,3 @@
 gql==4.0.0
 httpx==0.28.1
-pyside6-essentials==6.11.0
+pyside6-essentials==6.11.1

@@ -240,7 +240,6 @@ def _calculate_initial(user_list, mean_score):
                     media["id"]
                 ] = user_match["score"]
 
-
             normalized_rating = (
                 rating / (popularity + rec_popularity) * score
             )  # normalize the rating to mitigate popularity bias and factor in user score
