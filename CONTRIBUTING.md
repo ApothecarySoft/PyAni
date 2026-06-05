@@ -11,14 +11,15 @@ If you discover a bug, please open an issue on GitHub with:
 - Steps to reproduce the issue
 - Expected behavior
 - Actual behavior
-- Your Python version and operating system
+- Your Python version (if running from source)
+- Your OS version
 
 ### Suggesting Enhancements
 
 I'd love to hear your ideas for improving PyAni! Please open an issue with:
 - A clear description of the enhancement
 - Why you think it would be useful
-- Any relevant examples or mockups
+- Any relevant examples or mockups you may have
 
 ### Submitting Pull Requests
 
