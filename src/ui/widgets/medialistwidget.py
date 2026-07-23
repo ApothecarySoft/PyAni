@@ -99,6 +99,7 @@ class CooldownProgressDialog(QDialog):
         self.progressBar = QProgressBar()
         self.progressBar.setMaximum(100)
         self.progressBar.setValue(0)
+        self.progressBar.setTextVisible(False)
         self.maximum = None
 
         layout = QVBoxLayout()
@@ -114,6 +115,8 @@ class CooldownProgressDialog(QDialog):
         if self.maximum is None:
             self.maximum = seconds
             self.progressBar.setMaximum(seconds)
+            self.progressBar.setFormat("%v / %ms")
+            self.progressBar.setTextVisible(True)
 
         self.progressBar.setValue(self.maximum - seconds + 1)
 
