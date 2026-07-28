@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=80.10.2", "setuptools-scm>=8"]
+requires = ["setuptools>=83.0.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,6 +10,7 @@ dependencies = [
     "gql==4.0.0",
     "httpx==0.28.1",
     "pyside6-essentials==6.11.1",
+    "ladybug"
 ]
 
 [tool.pyside6-project]

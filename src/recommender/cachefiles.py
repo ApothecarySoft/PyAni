@@ -7,7 +7,7 @@ import recommender.constants as constants
 from recommender.utils import sanitize
 
 
-def _get_cache_directory():
+def get_cache_directory():
     path = os.path.expanduser("~/Documents/pyani/cache")
     os.makedirs(path, exist_ok=True)
     return path
@@ -24,7 +24,7 @@ def _compare_date_stamps(stamp1, stamp2=None, delta=constants.OLD_DATA_THRESHOLD
 
 
 def _generate_cache_file_name_for_item(item_name: str):
-    return f"{_get_cache_directory()}{os.sep}{sanitize(item_name)}-{_get_today_date_stamp()}-list.json"
+    return f"{get_cache_directory()}{os.sep}{sanitize(item_name)}-{_get_today_date_stamp()}-list.json"
 
 
 def save_cache_file(item_name: str, entries):
@@ -33,14 +33,14 @@ def save_cache_file(item_name: str, entries):
 
 
 def remove_all_tag_file(tag: str):
-    file_names = glob(f"{_get_cache_directory()}{os.sep}{tag}-*-list.json")
+    file_names = glob(f"{get_cache_directory()}{os.sep}{tag}-*-list.json")
     for fileName in file_names:
         os.remove(fileName)
 
 
 def latest_valid_cache_file_or_new(item_name: str, clean=True, expiration: bool = True):
     file_names = glob(
-        f"{_get_cache_directory()}{os.sep}{sanitize(item_name)}-*-list.json"
+        f"{get_cache_directory()}{os.sep}{sanitize(item_name)}-*-list.json"
     )
     latest_valid_file_name = None
     latest_valid_date_stamp = None
@@ -76,7 +76,7 @@ def load_data_from_file(user_file):
 
 
 def _get_tags_file_name():
-    return f"{_get_cache_directory()}{os.sep}tags.txt"
+    return f"{get_cache_directory()}{os.sep}tags.txt"
 
 
 def load_tags_from_cache() -> list[str]:

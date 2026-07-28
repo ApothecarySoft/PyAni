@@ -39,14 +39,21 @@ def generate_joint_list(user_data):
     ]
 
 
-def get_recommendation_list(user_name, use, refresh, status_callback, cd_progress_callback, cd_callback):
+def get_recommendation_list(
+    user_name, use, refresh, status_callback, cd_progress_callback, cd_callback
+):
     if not user_name:
         return None, None
 
     user_file = latest_valid_cache_file_or_new(item_name=user_name, clean=True)
 
     if refresh or not os.path.exists(user_file):
-        user_list = fetch_data_for_user(user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback)
+        user_list = fetch_data_for_user(
+            user_name,
+            status_callback=status_callback,
+            cd_progress_callback=cd_progress_callback,
+            cd_callback=cd_callback,
+        )
     else:
         user_list = load_data_from_file(user_file)
 
@@ -101,7 +108,7 @@ def get_recommendation_list(user_name, use, refresh, status_callback, cd_progres
                 f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f
             )
 
-    return final_recs, final_origins, user_list
+    return final_recs, final_origins, user_list, property_ratings
 
 
 def _calculate_mean_score(user_list):

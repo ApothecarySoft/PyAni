@@ -1,7 +1,10 @@
+import os.path
 import sys
 
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication
 
+from database.db import LadybugManager
+from recommender.cachefiles import get_cache_directory
 from ui.tabs.anihuntertab import AniHunterTab
 from ui.tabs.whattowatchtab import WhatToWatchTab
 
@@ -16,16 +19,6 @@ class MainWindow(QMainWindow):
         self.mainView = MainView()
         self.setCentralWidget(self.mainView)
 
-        # screen_geometry = self.screen().availableGeometry()
-        # current_geometry = self.geometry()
-        #
-        # self.setGeometry(
-        #     current_geometry.x(),
-        #     screen_geometry.top(),
-        #     current_geometry.width(),
-        #     screen_geometry.height(),
-        # )
-
 
 class MainView(QTabWidget):
     def __init__(self):
@@ -37,6 +30,16 @@ class MainView(QTabWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    db_manager = LadybugManager()
+    try:
+        db_manager.initialize(f"{get_cache_directory()}{os.path.sep}db")
+    except Exception as e:
+        print(f"CRITICAL: Failed to initialize Neo4j: {e}", file=sys.stderr)
+        sys.exit(1)
+
     window = MainWindow()
     window.show()
+
+    db_manager.close()
     sys.exit(app.exec())

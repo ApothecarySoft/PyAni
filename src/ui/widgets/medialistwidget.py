@@ -84,8 +84,12 @@ class FetchProgressDialog(QDialog):
 
     @Slot(str)
     def on_cooldown(self, cooldown_message):
-        cooldown_dialog = CooldownProgressDialog(parent=self, cooldown_message=cooldown_message)
-        self.fetch_thread.CooldownProgressSignal.connect(cooldown_dialog.on_cooldown_progress)
+        cooldown_dialog = CooldownProgressDialog(
+            parent=self, cooldown_message=cooldown_message
+        )
+        self.fetch_thread.CooldownProgressSignal.connect(
+            cooldown_dialog.on_cooldown_progress
+        )
         cooldown_dialog.exec()
 
 
@@ -119,6 +123,7 @@ class CooldownProgressDialog(QDialog):
             self.progressBar.setTextVisible(True)
 
         self.progressBar.setValue(self.maximum - seconds + 1)
+
 
 class PaginatedListWidget(QWidget):
     def __init__(self, make_media_view):

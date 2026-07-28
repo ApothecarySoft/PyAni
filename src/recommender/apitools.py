@@ -8,7 +8,9 @@ import recommender.queries as queries
 from recommender.cachefiles import save_cache_file
 
 
-def _do_request(variable_values, query, cd_progress_callback, cd_callback) -> dict[str, Any] | None:
+def _do_request(
+    variable_values, query, cd_progress_callback, cd_callback
+) -> dict[str, Any] | None:
     result = None
     max_retries = 3
     retries = 0
@@ -29,7 +31,10 @@ def _do_request(variable_values, query, cd_progress_callback, cd_callback) -> di
                 error_message = error["message"]
                 if error_code == 429:
                     _countdown_timer_s(
-                        61, cd_progress_callback, cd_callback, f"got http {error_code}, server is rate limiting us. waiting to continue fetching data"
+                        61,
+                        cd_progress_callback,
+                        cd_callback,
+                        f"got http {error_code}, server is rate limiting us. waiting to continue fetching data",
                     )
                 elif error_code == 403:
                     raise RuntimeError(f"Query failed: {error_message}")
@@ -42,17 +47,12 @@ def _do_request(variable_values, query, cd_progress_callback, cd_callback) -> di
                         10,
                         cd_progress_callback,
                         cd_callback,
-                        f"unhandled http error {error_code}. trying again in 10 seconds"
+                        f"unhandled http error {error_code}. trying again in 10 seconds",
                     )
             else:
                 raise RuntimeError(f"Unknown error: {e}")
         except TransportServerError as e:
-            _countdown_timer_s(
-                10,
-                cd_progress_callback,
-                cd_callback,
-                str(e)
-            )
+            _countdown_timer_s(10, cd_progress_callback, cd_callback, str(e))
         finally:
             retries += 1
     return result
@@ -70,7 +70,7 @@ def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callb
         },
         query=query,
         cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback
+        cd_callback=cd_callback,
     )
     if result is not None:
         data_page = result["Page"]
@@ -88,7 +88,7 @@ def _fetch_user_data_for_chunk(
         variable_values={"name": user_name, "type": media_type, "chunk": chunk},
         query=query,
         cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback
+        cd_callback=cd_callback,
     )
     if result is not None:
         lists = result["MediaListCollection"]["lists"]
@@ -112,7 +112,9 @@ def _countdown_timer_s(seconds: int, cd_progress_callback, cd_callback, reason):
         seconds -= 1
 
 
-def _fetch_data_for_type(media_type: str, user_name: str, status_callback, cd_progress_callback, cd_callback):
+def _fetch_data_for_type(
+    media_type: str, user_name: str, status_callback, cd_progress_callback, cd_callback
+):
     print(f"fetching data for type {media_type}")
     chunk_num = 0
     has_next_chunk = True
@@ -127,7 +129,7 @@ def _fetch_data_for_type(media_type: str, user_name: str, status_callback, cd_pr
             chunk=chunk_num,
             user_name=user_name,
             cd_progress_callback=cd_progress_callback,
-            cd_callback=cd_callback
+            cd_callback=cd_callback,
         )
         entries += new_entries
 
@@ -144,7 +146,10 @@ def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callb
     while has_next_page:
         page_num += 1
         new_entries, has_next_page = _fetch_tag_data_for_page(
-            page=page_num, tag=tag, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
+            page=page_num,
+            tag=tag,
+            cd_progress_callback=cd_progress_callback,
+            cd_callback=cd_callback,
         )
         entries += new_entries
     entries = {str(x["id"]): x for x in entries}
@@ -153,13 +158,23 @@ def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callb
     return entries
 
 
-def fetch_data_for_user(user_name: str, status_callback, cd_progress_callback, cd_callback):
+def fetch_data_for_user(
+    user_name: str, status_callback, cd_progress_callback, cd_callback
+):
     print(f"fetching data for user {user_name}")
     entries = _fetch_data_for_type(
-        media_type="ANIME", user_name=user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
+        media_type="ANIME",
+        user_name=user_name,
+        status_callback=status_callback,
+        cd_progress_callback=cd_progress_callback,
+        cd_callback=cd_callback,
     )
     entries += _fetch_data_for_type(
-        media_type="MANGA", user_name=user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
+        media_type="MANGA",
+        user_name=user_name,
+        status_callback=status_callback,
+        cd_progress_callback=cd_progress_callback,
+        cd_callback=cd_callback,
     )
 
     save_cache_file(user_name, entries)
