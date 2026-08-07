@@ -1,3 +1,69 @@
+user_list_query_minimal = """
+    query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {
+        MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 20) {
+            hasNextChunk
+            lists {
+                name
+                isCustomList
+                entries {
+                    score(format: POINT_100)
+                    media {
+                        id
+                    }
+                }
+            }
+        }
+    }
+"""
+
+media_query = """
+    query Media(id: $id) {
+        id
+        type
+        title {
+            english
+            userPreferred
+        }
+        staff (page: 1, perPage: 20, sort: FAVOURITES_DESC) {
+            nodes {
+                id
+                name {
+                    userPreferred
+                }
+            }
+        }
+        meanScore
+        format
+        popularity
+        startDate {
+            year
+        }
+        studios (isMain: true) {
+            nodes {
+                name
+                id
+            }
+        }
+        genres
+        tags {
+            id
+            rank
+            name
+        }
+        coverImage {
+            medium
+        }
+        recommendations (sort: RATING_DESC) {
+            nodes {
+                rating
+                mediaRecommendation {
+                    id
+                }
+            }
+        }
+    }
+"""
+
 def user_list_query():
     return f"""query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {{
     MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 20) {{

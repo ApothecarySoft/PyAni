@@ -1,10 +1,9 @@
 import json
 import os
-from datetime import date
 from glob import glob
 
 import recommender.constants as constants
-from recommender.utils import sanitize
+from recommender.utils import sanitize, get_today_date_stamp
 
 
 def get_cache_directory():
@@ -13,18 +12,14 @@ def get_cache_directory():
     return path
 
 
-def _get_today_date_stamp():
-    return date.today().strftime("%Y%m%d")
-
-
 def _compare_date_stamps(stamp1, stamp2=None, delta=constants.OLD_DATA_THRESHOLD):
     if not stamp2:
-        stamp2 = _get_today_date_stamp()
+        stamp2 = get_today_date_stamp()
     return abs(int(stamp1) - int(stamp2)) <= delta
 
 
 def _generate_cache_file_name_for_item(item_name: str):
-    return f"{get_cache_directory()}{os.sep}{sanitize(item_name)}-{_get_today_date_stamp()}-list.json"
+    return f"{get_cache_directory()}{os.sep}{sanitize(item_name)}-{get_today_date_stamp()}-list.json"
 
 
 def save_cache_file(item_name: str, entries):

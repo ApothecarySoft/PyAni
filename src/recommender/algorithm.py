@@ -108,7 +108,7 @@ def get_recommendation_list(
                 f"{staff['staff']['name']['userPreferred']}: {staff['score']}%", file=f
             )
 
-    return final_recs, final_origins, user_list, property_ratings
+    return final_recs, final_origins, user_list
 
 
 def _calculate_mean_score(user_list):

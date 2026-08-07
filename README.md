@@ -15,7 +15,7 @@ pip install -r requirements.txt
 run mainwindow.py in python3
 ### Linux/Mac
 ```bash
-python3 src/mainwindow.py
+python3 src/AnilistToolkit.py
 ```
 ### Windows
 ```pwsh

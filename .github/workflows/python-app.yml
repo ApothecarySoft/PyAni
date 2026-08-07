@@ -53,7 +53,7 @@ jobs:
         uses: Nuitka/Nuitka-Action@main
         with:
           nuitka-version: main
-          script-name: src/mainwindow.py
+          script-name: src/AnilistToolkit.py
           mode: standalone
           enable-plugins: pyside6
 

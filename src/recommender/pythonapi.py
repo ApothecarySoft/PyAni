@@ -108,7 +108,6 @@ def _get_watch_party(
             temp_list,
             temp_origins,
             temp_user_list,
-            temp_prop_ratings,
         ) = get_recommendation_list(
             user_name=userName,
             use=use,
@@ -120,9 +119,6 @@ def _get_watch_party(
         user_data[index]["list"] = temp_list
         user_data[index]["origins"] = temp_origins
         user_data[index]["userList"] = temp_user_list
-        for prop_type in temp_prop_ratings.keys():
-            for prop_entry in temp_prop_ratings[prop_type]:
-                props[prop_type][prop_entry]
 
     progress_callback(len(sanitized_user_names) / num_steps * 100)
 

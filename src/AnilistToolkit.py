@@ -33,13 +33,15 @@ if __name__ == "__main__":
 
     db_manager = LadybugManager()
     try:
-        db_manager.initialize(f"{get_cache_directory()}{os.path.sep}db")
+        db_manager.initialize(f"{get_cache_directory()}{os.path.sep}db.lbdb")
     except Exception as e:
-        print(f"CRITICAL: Failed to initialize Neo4j: {e}", file=sys.stderr)
+        print(f"CRITICAL: Failed to initialize database: {e}", file=sys.stderr)
         sys.exit(1)
 
     window = MainWindow()
     window.show()
 
+    status = app.exec()
+
     db_manager.close()
-    sys.exit(app.exec())
+    sys.exit(status)

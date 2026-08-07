@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 sanitize_pattern = re.compile(r"[^a-zA-Z0-9_-]")
 
@@ -30,3 +31,6 @@ def clean_format(raw_format):
         w.upper() if w in _words_to_all_caps else w.capitalize()
         for w in raw_format.replace("_", " ").upper().split(" ")
     )
+
+def get_today_date_stamp():
+    return date.today().strftime("%Y%m%d")

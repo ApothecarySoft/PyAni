@@ -10,7 +10,7 @@ dependencies = [
     "gql==4.0.0",
     "httpx==0.28.1",
     "pyside6-essentials==6.11.1",
-    "ladybug"
+    "ladybug==0.17.1"
 ]
 
 [tool.pyside6-project]
