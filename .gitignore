@@ -15,3 +15,5 @@ build/**
 
 *egg-info/**
 mainwindow.bin
+
+dist/

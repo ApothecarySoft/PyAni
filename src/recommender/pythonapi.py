@@ -104,11 +104,7 @@ def _get_watch_party(
 
     for index, userName in enumerate(sanitized_user_names):
         progress_callback(int((index / num_steps) * 100))
-        (
-            temp_list,
-            temp_origins,
-            temp_user_list,
-        ) = get_recommendation_list(
+        (temp_list, temp_origins, temp_user_list,) = get_recommendation_list(
             user_name=userName,
             use=use,
             refresh=force_refresh,

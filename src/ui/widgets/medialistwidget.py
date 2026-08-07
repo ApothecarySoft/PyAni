@@ -1,3 +1,4 @@
+import sys
 from functools import partial
 from math import ceil
 
@@ -23,6 +24,43 @@ from PySide6.QtWidgets import (
 from recommender.pythonapi import BaseThread
 from recommender.utils import get_english_title_or_user_preferred
 from ui.widgets.netimagewidget import NetImageWidget
+
+class FetchProgressWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        layout = QVBoxLayout()
+
+        self.setLayout(layout)
+
+    def _add_progressbar(self):
+        progress_bar = QProgressBar()
+        progress_bar.setMaximum(100)
+        progress_bar.setValue(0)
+        self.layout().addWidget(progress_bar)
+        return progress_bar
+
+    def _remove_progress_bars_after(self, after_layer):
+        bars_to_remove = self.layout().findChildren(QProgressBar)[after_layer:]
+        for bar in bars_to_remove:
+            self.layout().removeWidget(bar)
+
+    def update_progress(self, progress: int, layer: int):
+        bars = self.layout().findChildren(QProgressBar)
+
+        if len(bars) < layer:
+            print(f"Can not skip progress bar layers ({len(bars) - 1} -> {layer})", file=sys.stderr)
+            return
+
+        if len(bars) == layer:
+            bar = self._add_progressbar()
+        else:
+            bar = bars[layer]
+
+        bar.setValue(progress)
+
+        if len(bars) > layer + 1:
+            self._remove_progress_bars_after(layer)
 
 
 class FetchProgressDialog(QDialog):
@@ -62,7 +100,7 @@ class FetchProgressDialog(QDialog):
         self.status = new_status
         self.statusText.append(f"{self.status}\n")
 
-    @Slot(int)
+    @Slot(int, int)
     def on_progress_update(self, new_progress):
         self.progress = new_progress
         self.update_window_title()

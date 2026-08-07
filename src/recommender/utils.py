@@ -32,5 +32,6 @@ def clean_format(raw_format):
         for w in raw_format.replace("_", " ").upper().split(" ")
     )
 
+
 def get_today_date_stamp():
     return date.today().strftime("%Y%m%d")

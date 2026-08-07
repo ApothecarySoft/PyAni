@@ -1,7 +1,6 @@
 user_list_query_minimal = """
-    query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {
+    query MediaListCollection($name: String, $type: MediaType) {
         MediaListCollection (userName: $name, type: $type, status_not: PLANNING, chunk: $chunk, perChunk: 20) {
-            hasNextChunk
             lists {
                 name
                 isCustomList
@@ -63,6 +62,7 @@ media_query = """
         }
     }
 """
+
 
 def user_list_query():
     return f"""query MediaListCollection($name: String, $type: MediaType, $chunk: Int) {{

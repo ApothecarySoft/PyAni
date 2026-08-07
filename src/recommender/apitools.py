@@ -5,6 +5,7 @@ from gql import gql, Client
 from gql.transport.httpx import HTTPXTransport
 from gql.transport.exceptions import TransportQueryError, TransportServerError
 import recommender.queries as queries
+from database.db import LadybugManager
 from recommender.cachefiles import save_cache_file
 
 
@@ -79,30 +80,6 @@ def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callb
         raise RuntimeError(f"No result. Unknown reason.")
 
 
-def _fetch_user_data_for_chunk(
-    media_type: str, chunk: int, user_name: str, cd_progress_callback, cd_callback
-):
-    print(f"fetching for chunk #{chunk}")
-    query = gql(queries.user_list_query())
-    result = _do_request(
-        variable_values={"name": user_name, "type": media_type, "chunk": chunk},
-        query=query,
-        cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback,
-    )
-    if result is not None:
-        lists = result["MediaListCollection"]["lists"]
-        entries = [
-            listEntries
-            for currentList in lists
-            for listEntries in currentList["entries"]
-            if not currentList["isCustomList"]
-        ]
-        return entries, result["MediaListCollection"]["hasNextChunk"]
-    else:
-        raise ValueError("No result. Unknown reason.")
-
-
 def _countdown_timer_s(seconds: int, cd_progress_callback, cd_callback, reason):
     cd_callback(reason)
     while seconds > 0:
@@ -112,28 +89,29 @@ def _countdown_timer_s(seconds: int, cd_progress_callback, cd_callback, reason):
         seconds -= 1
 
 
-def _fetch_data_for_type(
+def _fetch_user_list_for_type(
     media_type: str, user_name: str, status_callback, cd_progress_callback, cd_callback
 ):
     print(f"fetching data for type {media_type}")
-    chunk_num = 0
-    has_next_chunk = True
-    entries = []
-    while has_next_chunk:
-        chunk_num += 1
-        status_callback(
-            f"Fetching {media_type.lower()} data for {user_name} (chunk {chunk_num})"
-        )
-        new_entries, has_next_chunk = _fetch_user_data_for_chunk(
-            media_type=media_type,
-            chunk=chunk_num,
-            user_name=user_name,
-            cd_progress_callback=cd_progress_callback,
-            cd_callback=cd_callback,
-        )
-        entries += new_entries
-
-    return entries
+    db = LadybugManager()
+    query = gql(queries.user_list_query())
+    result = _do_request(
+        variable_values={"name": user_name, "type": media_type},
+        query=query,
+        cd_progress_callback=cd_progress_callback,
+        cd_callback=cd_callback,
+    )
+    if result is not None:
+        lists = result["MediaListCollection"]["lists"]
+        entries = [
+            list_entry
+            for current_list in lists
+            for list_entry in current_list["entries"]
+            if not current_list["isCustomList"]
+        ]
+        return entries
+    else:
+        raise ValueError("No result. Unknown reason.")
 
 
 def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callback):
@@ -158,24 +136,52 @@ def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callb
     return entries
 
 
-def fetch_data_for_user(
+class RecursiveProgressCallback:
+    def __init__(self, callback_object, sub_job_size: int = 1):
+        self._callback_function = callback_object
+        self.sub_job_size = sub_job_size
+        self._progress = 0
+
+    def __call__(self, progress):
+        self._callback_function(progress / self.sub_job_size)
+
+
+def _update_media_info_for_list(
+    user_name: str,
+    entries,
+    status_callback,
+):
+    for entry in entries:
+        media_id = entry["media"]["id"]
+        fetch_data_for_media
+
+
+
+def _store_user_media_relations(user_name, entries):
+    pass
+
+
+def fetch_user_list(
     user_name: str, status_callback, cd_progress_callback, cd_callback
 ):
     print(f"fetching data for user {user_name}")
-    entries = _fetch_data_for_type(
+    entries = _fetch_user_list_for_type(
         media_type="ANIME",
         user_name=user_name,
         status_callback=status_callback,
         cd_progress_callback=cd_progress_callback,
         cd_callback=cd_callback,
     )
-    entries += _fetch_data_for_type(
+    entries += _fetch_user_list_for_type(
         media_type="MANGA",
         user_name=user_name,
         status_callback=status_callback,
         cd_progress_callback=cd_progress_callback,
         cd_callback=cd_callback,
     )
+
+    _update_media_info_for_list(user_name, entries, RecursiveProgressCallback(status_callback))
+    _store_user_media_relations(user_name, entries)
 
     save_cache_file(user_name, entries)
 

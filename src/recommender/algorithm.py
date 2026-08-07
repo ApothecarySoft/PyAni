@@ -1,6 +1,6 @@
 import os
 from recommender.cachefiles import latest_valid_cache_file_or_new, load_data_from_file
-from recommender.apitools import fetch_data_for_user
+from recommender.apitools import fetch_user_list
 import recommender.constants as constants
 
 
@@ -48,7 +48,7 @@ def get_recommendation_list(
     user_file = latest_valid_cache_file_or_new(item_name=user_name, clean=True)
 
     if refresh or not os.path.exists(user_file):
-        user_list = fetch_data_for_user(
+        user_list = fetch_user_list(
             user_name,
             status_callback=status_callback,
             cd_progress_callback=cd_progress_callback,
