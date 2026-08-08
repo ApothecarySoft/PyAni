@@ -1,4 +1,6 @@
 import time
+from typing import Any
+
 from gql import gql, Client
 from gql.transport.httpx import HTTPXTransport
 from gql.transport.exceptions import TransportQueryError, TransportServerError
@@ -6,7 +8,7 @@ import recommender.queries as queries
 from recommender.cachefiles import save_cache_file
 
 
-def _do_request(variable_values, query, status_callback):
+def _do_request(variable_values, query, cd_progress_callback, cd_callback) -> dict[str, Any] | None:
     result = None
     max_retries = 3
     retries = 0
@@ -26,38 +28,37 @@ def _do_request(variable_values, query, status_callback):
                 error_code = error["status"]
                 error_message = error["message"]
                 if error_code == 429:
-                    print(
-                        f"got http {error_code}, server is rate limiting us. waiting to continue fetching data"
-                    )
                     _countdown_timer_s(
-                        61, status_callback, "Server is busy. Please wait."
+                        61, cd_progress_callback, cd_callback, f"got http {error_code}, server is rate limiting us. waiting to continue fetching data"
                     )
                 elif error_code == 403:
                     raise RuntimeError(f"Query failed: {error_message}")
-                else:
-                    print(
-                        f"unhandled http error {error_code}. trying again in 10 seconds"
+                elif error_code == 404:
+                    raise RuntimeError(
+                        f"Query failed. {variable_values.get('name', variable_values.get('tag'))}: {error_message}"
                     )
+                else:
                     _countdown_timer_s(
                         10,
-                        status_callback,
-                        f"Unhandled http error {error_code}. Trying again in 10 seconds.",
+                        cd_progress_callback,
+                        cd_callback,
+                        f"unhandled http error {error_code}. trying again in 10 seconds"
                     )
             else:
                 raise RuntimeError(f"Unknown error: {e}")
         except TransportServerError as e:
-            print(e)
             _countdown_timer_s(
                 10,
-                status_callback,
-                f"Unhandled error: {e}. Trying again in 10 seconds.",
+                cd_progress_callback,
+                cd_callback,
+                str(e)
             )
         finally:
             retries += 1
     return result
 
 
-def _fetch_tag_data_for_page(page: int, tag: str, status_callback):
+def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callback):
     print(f"fetching for page #{page}")
     query = gql(queries.hunter_query)
     result = _do_request(
@@ -68,7 +69,8 @@ def _fetch_tag_data_for_page(page: int, tag: str, status_callback):
             "page": page,
         },
         query=query,
-        status_callback=status_callback,
+        cd_progress_callback=cd_progress_callback,
+        cd_callback=cd_callback
     )
     if result is not None:
         data_page = result["Page"]
@@ -78,14 +80,15 @@ def _fetch_tag_data_for_page(page: int, tag: str, status_callback):
 
 
 def _fetch_user_data_for_chunk(
-    media_type: str, chunk: int, user_name: str, status_callback
+    media_type: str, chunk: int, user_name: str, cd_progress_callback, cd_callback
 ):
     print(f"fetching for chunk #{chunk}")
     query = gql(queries.user_list_query())
     result = _do_request(
         variable_values={"name": user_name, "type": media_type, "chunk": chunk},
         query=query,
-        status_callback=status_callback,
+        cd_progress_callback=cd_progress_callback,
+        cd_callback=cd_callback
     )
     if result is not None:
         lists = result["MediaListCollection"]["lists"]
@@ -100,15 +103,16 @@ def _fetch_user_data_for_chunk(
         raise ValueError("No result. Unknown reason.")
 
 
-def _countdown_timer_s(seconds: int, status_callback, reason: str = ""):
+def _countdown_timer_s(seconds: int, cd_progress_callback, cd_callback, reason):
+    cd_callback(reason)
     while seconds > 0:
         print(seconds)
-        status_callback(f"{reason} ({seconds} seconds remaining)")
+        cd_progress_callback(seconds)
         time.sleep(1)
         seconds -= 1
 
 
-def _fetch_data_for_type(media_type: str, user_name: str, status_callback):
+def _fetch_data_for_type(media_type: str, user_name: str, status_callback, cd_progress_callback, cd_callback):
     print(f"fetching data for type {media_type}")
     chunk_num = 0
     has_next_chunk = True
@@ -122,14 +126,15 @@ def _fetch_data_for_type(media_type: str, user_name: str, status_callback):
             media_type=media_type,
             chunk=chunk_num,
             user_name=user_name,
-            status_callback=status_callback,
+            cd_progress_callback=cd_progress_callback,
+            cd_callback=cd_callback
         )
         entries += new_entries
 
     return entries
 
 
-def fetch_data_for_tag(tag: str, status_callback):
+def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callback):
     print(f"fetching data for tag {tag}")
     status_callback(f"Fetching data for tag: {tag}")
     page_num = 0
@@ -139,7 +144,7 @@ def fetch_data_for_tag(tag: str, status_callback):
     while has_next_page:
         page_num += 1
         new_entries, has_next_page = _fetch_tag_data_for_page(
-            page=page_num, tag=tag, status_callback=status_callback
+            page=page_num, tag=tag, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
         )
         entries += new_entries
     entries = {str(x["id"]): x for x in entries}
@@ -148,13 +153,13 @@ def fetch_data_for_tag(tag: str, status_callback):
     return entries
 
 
-def fetch_data_for_user(user_name: str, status_callback):
+def fetch_data_for_user(user_name: str, status_callback, cd_progress_callback, cd_callback):
     print(f"fetching data for user {user_name}")
     entries = _fetch_data_for_type(
-        media_type="ANIME", user_name=user_name, status_callback=status_callback
+        media_type="ANIME", user_name=user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
     )
     entries += _fetch_data_for_type(
-        media_type="MANGA", user_name=user_name, status_callback=status_callback
+        media_type="MANGA", user_name=user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback
     )
 
     save_cache_file(user_name, entries)

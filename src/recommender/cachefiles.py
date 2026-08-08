@@ -14,7 +14,7 @@ def _get_cache_directory():
 
 
 def _get_today_date_stamp():
-    return str(date.today()).replace("-", "")
+    return date.today().strftime("%Y%m%d")
 
 
 def _compare_date_stamps(stamp1, stamp2=None, delta=constants.OLD_DATA_THRESHOLD):
@@ -48,7 +48,7 @@ def latest_valid_cache_file_or_new(item_name: str, clean=True, expiration: bool 
         date_stamp = _extract_date_stamp_from_file_name(file_name=fileName)
         if not expiration or _compare_date_stamps(date_stamp):
             if latest_valid_date_stamp is None or date_stamp > latest_valid_date_stamp:
-                if clean and latest_valid_file_name:
+                if clean and latest_valid_file_name is not None:
                     os.remove(latest_valid_file_name)
                 latest_valid_file_name = fileName
                 latest_valid_date_stamp = date_stamp
