@@ -1,6 +1,8 @@
 import os
+
+from database.db import LadybugManager
 from recommender.cachefiles import latest_valid_cache_file_or_new, load_data_from_file
-from recommender.apitools import fetch_user_list
+from recommender.apitools import _fetch_user_list
 import recommender.constants as constants
 
 
@@ -45,10 +47,8 @@ def get_recommendation_list(
     if not user_name:
         return None, None
 
-    user_file = latest_valid_cache_file_or_new(item_name=user_name, clean=True)
-
-    if refresh or not os.path.exists(user_file):
-        user_list = fetch_user_list(
+    if refresh or not db.is_user_fresh(user_name):
+        user_list = _fetch_user_list(
             user_name,
             status_callback=status_callback,
             cd_progress_callback=cd_progress_callback,

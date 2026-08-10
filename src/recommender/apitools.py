@@ -1,5 +1,6 @@
 import time
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from gql import gql, Client
 from gql.transport.httpx import HTTPXTransport
@@ -9,9 +10,7 @@ from database.db import LadybugManager
 from recommender.cachefiles import save_cache_file
 
 
-def _do_request(
-    variable_values, query, cd_progress_callback, cd_callback
-) -> dict[str, Any] | None:
+def _do_request(variable_values, query, callbacks) -> dict[str, Any] | None:
     result = None
     max_retries = 3
     retries = 0
@@ -33,8 +32,7 @@ def _do_request(
                 if error_code == 429:
                     _countdown_timer_s(
                         61,
-                        cd_progress_callback,
-                        cd_callback,
+                        callbacks,
                         f"got http {error_code}, server is rate limiting us. waiting to continue fetching data",
                     )
                 elif error_code == 403:
@@ -46,20 +44,41 @@ def _do_request(
                 else:
                     _countdown_timer_s(
                         10,
-                        cd_progress_callback,
-                        cd_callback,
+                        callbacks,
                         f"unhandled http error {error_code}. trying again in 10 seconds",
                     )
             else:
                 raise RuntimeError(f"Unknown error: {e}")
         except TransportServerError as e:
-            _countdown_timer_s(10, cd_progress_callback, cd_callback, str(e))
+            _countdown_timer_s(10, callbacks, str(e))
         finally:
             retries += 1
     return result
 
 
-def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callback):
+def refresh(username: str, force: bool, callbacks):
+    db = LadybugManager()
+    entries = None
+    if not force and db.is_user_fresh(username):
+        pass
+        # entries = (get them from the database)
+    if entries is None:
+        entries = _fetch_user_list(username, callbacks)
+
+    for entry in entries:
+        if force or not db.is_media_fresh(entry['media']['id']):
+            pass
+            # fetch media
+
+    # go through recommendations and relations (pull media from db based on ids in entries) and fetch any missing or outdated media
+    # Media, Property nodes and MediaProperty relations can be stored on media fetch
+    # Relation and Rec relations can be stored
+    # User nodes should be stored here
+    # then UserMedia, Follows relations can be stored here
+    # UserProperty relations have to be stored when they're calculated in algorithm.py
+
+
+def _fetch_tag_data_for_page(page: int, tag: str, callbacks):
     print(f"fetching for page #{page}")
     query = gql(queries.hunter_query)
     result = _do_request(
@@ -70,8 +89,7 @@ def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callb
             "page": page,
         },
         query=query,
-        cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback,
+        callbacks=callbacks,
     )
     if result is not None:
         data_page = result["Page"]
@@ -80,26 +98,22 @@ def _fetch_tag_data_for_page(page: int, tag: str, cd_progress_callback, cd_callb
         raise RuntimeError(f"No result. Unknown reason.")
 
 
-def _countdown_timer_s(seconds: int, cd_progress_callback, cd_callback, reason):
-    cd_callback(reason)
+def _countdown_timer_s(seconds: int, callbacks, reason):
+    callbacks.cd(reason)
     while seconds > 0:
         print(seconds)
-        cd_progress_callback(seconds)
+        callbacks.cd_progress(seconds)
         time.sleep(1)
         seconds -= 1
 
 
-def _fetch_user_list_for_type(
-    media_type: str, user_name: str, status_callback, cd_progress_callback, cd_callback
-):
+def _fetch_user_list_for_type(media_type: str, user_name: str, callbacks):
     print(f"fetching data for type {media_type}")
-    db = LadybugManager()
     query = gql(queries.user_list_query())
     result = _do_request(
         variable_values={"name": user_name, "type": media_type},
         query=query,
-        cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback,
+        callbacks=callbacks,
     )
     if result is not None:
         lists = result["MediaListCollection"]["lists"]
@@ -114,7 +128,7 @@ def _fetch_user_list_for_type(
         raise ValueError("No result. Unknown reason.")
 
 
-def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callback):
+def fetch_data_for_tag(tag: str, status_callback, callbacks):
     print(f"fetching data for tag {tag}")
     status_callback(f"Fetching data for tag: {tag}")
     page_num = 0
@@ -124,10 +138,7 @@ def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callb
     while has_next_page:
         page_num += 1
         new_entries, has_next_page = _fetch_tag_data_for_page(
-            page=page_num,
-            tag=tag,
-            cd_progress_callback=cd_progress_callback,
-            cd_callback=cd_callback,
+            page=page_num, tag=tag, callbacks=callbacks
         )
         entries += new_entries
     entries = {str(x["id"]): x for x in entries}
@@ -136,53 +147,63 @@ def fetch_data_for_tag(tag: str, status_callback, cd_progress_callback, cd_callb
     return entries
 
 
-class RecursiveProgressCallback:
-    def __init__(self, callback_object, sub_job_size: int = 1):
-        self._callback_function = callback_object
-        self.sub_job_size = sub_job_size
-        self._progress = 0
+class NestedProgressCallback:
+    def __init__(self, callback_function: Callable[[int, int], None], layer: int, sub_job_size: int = 1):
+        self.callback_function: Callable[[int, int], None] = callback_function
+        self.layer: int = layer
+        self.sub_job_size: int = sub_job_size
+        self._progress: float = 0.0
 
-    def __call__(self, progress):
-        self._callback_function(progress / self.sub_job_size)
+    def set_progress(self, progress: int):
+        self._progress = progress
+        self.callback_function(progress, self.layer)
 
+    def increment_progress(self):
+        self._progress += 100.0 / self.sub_job_size
+        self.callback_function(int(self._progress), self.layer)
 
-def _update_media_info_for_list(
-    user_name: str,
-    entries,
-    status_callback,
-):
-    for entry in entries:
-        media_id = entry["media"]["id"]
-        fetch_data_for_media
-
-
-
-def _store_user_media_relations(user_name, entries):
-    pass
+    def make_sub_job(self, sub_job_size=1):
+        return NestedProgressCallback(
+            self.callback_function, self.layer + 1, sub_job_size
+        )
 
 
-def fetch_user_list(
-    user_name: str, status_callback, cd_progress_callback, cd_callback
-):
+class NestedStatusCallback:
+    def __init__(self, callback_function: Callable[[str, int], None], layer: int):
+        self.callback_function: Callable[[str, int], None] = callback_function
+        self.layer: int = layer
+
+    def __call__(self, status: str):
+        self.callback_function(status, self.layer)
+
+    def make_sub_job(self):
+        return NestedStatusCallback(self.callback_function, self.layer + 1)
+
+
+@dataclass
+class CallbacksStruct:
+    progress: NestedProgressCallback
+    status: NestedStatusCallback
+    cd: Callable
+    cd_progress: Callable
+
+    def make_sub_job(self, sub_job_size: int = 1):
+        return CallbacksStruct(
+            self.progress.make_sub_job(sub_job_size),
+            self.status.make_sub_job(),
+            self.cd,
+            self.cd_progress,
+        )
+
+
+def _fetch_user_list(user_name: str, callbacks):
     print(f"fetching data for user {user_name}")
     entries = _fetch_user_list_for_type(
-        media_type="ANIME",
-        user_name=user_name,
-        status_callback=status_callback,
-        cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback,
+        media_type="ANIME", user_name=user_name, callbacks=callbacks
     )
     entries += _fetch_user_list_for_type(
-        media_type="MANGA",
-        user_name=user_name,
-        status_callback=status_callback,
-        cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback,
+        media_type="MANGA", user_name=user_name, callbacks=callbacks
     )
 
-    _update_media_info_for_list(user_name, entries, RecursiveProgressCallback(status_callback))
-    _store_user_media_relations(user_name, entries)
-
-    save_cache_file(user_name, entries)
-
+    # create or update user
     return entries

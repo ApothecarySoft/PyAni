@@ -10,7 +10,11 @@ def _parameter_string_from_parameter(prefix, parameter):
 
 
 def _set_string_from_parameters(prefix, parameters):
-    return {', '.join(_parameter_string_from_parameter(prefix, p) for p in parameters.keys())}
+    return {
+        ", ".join(
+            _parameter_string_from_parameter(prefix, p) for p in parameters.keys()
+        )
+    }
 
 
 def _generate_prop_id(prop):
@@ -47,9 +51,12 @@ class LadybugManager:
                 self._create_tables()
                 print(f"✅ Centralized LadybugDB initialized at: {db_path}")
 
-    def _safe_execute(self, query, parameters = None):
+    def _safe_execute(self, query, parameters=None):
         with self._lock:
             return self._conn.execute(query, parameters)
+
+    def load_user_list(self, username):
+        pass
 
     def _is_node_fresh(
         self, node_table: str, node_id, freshold: int
@@ -195,7 +202,7 @@ class LadybugManager:
                 mean_score DOUBLE,
                 last_updated TIMESTAMP
             )
-        """ ## id is username
+        """  ## id is username
         )
         self._safe_execute(
             """

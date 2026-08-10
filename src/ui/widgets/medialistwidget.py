@@ -25,6 +25,7 @@ from recommender.pythonapi import BaseThread
 from recommender.utils import get_english_title_or_user_preferred
 from ui.widgets.netimagewidget import NetImageWidget
 
+
 class FetchProgressWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -49,7 +50,10 @@ class FetchProgressWidget(QWidget):
         bars = self.v_layout.findChildren(QProgressBar)
 
         if len(bars) < layer:
-            print(f"Can not skip progress bar layers ({len(bars) - 1} -> {layer})", file=sys.stderr)
+            print(
+                f"Can not skip progress bar layers ({len(bars) - 1} -> {layer})",
+                file=sys.stderr,
+            )
             return
 
         if len(bars) == layer:
@@ -69,20 +73,19 @@ class FetchProgressDialog(QDialog):
 
         self.statusText = QTextEdit()
         self.statusText.setReadOnly(True)
-        self.progressBar = QProgressBar()
+        self.progressBars = FetchProgressWidget()
 
         layout = QVBoxLayout()
         layout.addWidget(self.statusText)
-        layout.addWidget(self.progressBar)
+        layout.addWidget(self.progressBars)
 
         self.setLayout(layout)
 
         self.resize(400, 100)
 
         self.result = None
-        self.progress = 0
         self.status = ""
-        self.update_window_title()
+        self.update_window_title(0)
 
         self.fetch_thread = fetch_thread
         self.fetch_thread.ResultSignal.connect(self.on_result)
@@ -92,19 +95,18 @@ class FetchProgressDialog(QDialog):
         self.fetch_thread.CooldownSignal.connect(self.on_cooldown)
         self.fetch_thread.start()
 
-    def update_window_title(self):
-        self.setWindowTitle(f"Fetching data ({self.progress}%)")
+    def update_window_title(self, progress):
+        self.setWindowTitle(f"Fetching data ({progress}%)")
 
-    @Slot(str)
-    def on_status_update(self, new_status):
+    @Slot(str, int)
+    def on_status_update(self, new_status, layer):
         self.status = new_status
         self.statusText.append(f"{self.status}\n")
 
     @Slot(int, int)
-    def on_progress_update(self, new_progress):
-        self.progress = new_progress
-        self.update_window_title()
-        self.progressBar.setValue(self.progress)
+    def on_progress_update(self, new_progress, layer):
+        self.update_window_title(new_progress)
+        self.progressBars.update_progress(new_progress, layer)
 
     @Slot(object)
     def on_result(self, result):
