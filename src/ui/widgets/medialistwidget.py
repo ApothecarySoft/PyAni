@@ -29,24 +29,24 @@ class FetchProgressWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        layout = QVBoxLayout()
+        self.v_layout = QVBoxLayout()
 
-        self.setLayout(layout)
+        self.setLayout(self.v_layout)
 
     def _add_progressbar(self):
         progress_bar = QProgressBar()
         progress_bar.setMaximum(100)
         progress_bar.setValue(0)
-        self.layout().addWidget(progress_bar)
+        self.v_layout.addWidget(progress_bar)
         return progress_bar
 
     def _remove_progress_bars_after(self, after_layer):
-        bars_to_remove = self.layout().findChildren(QProgressBar)[after_layer:]
+        bars_to_remove = self.v_layout.findChildren(QProgressBar)[after_layer:]
         for bar in bars_to_remove:
-            self.layout().removeWidget(bar)
+            self.v_layout.removeWidget(bar)
 
     def update_progress(self, progress: int, layer: int):
-        bars = self.layout().findChildren(QProgressBar)
+        bars = self.v_layout.findChildren(QProgressBar)
 
         if len(bars) < layer:
             print(f"Can not skip progress bar layers ({len(bars) - 1} -> {layer})", file=sys.stderr)

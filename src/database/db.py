@@ -40,13 +40,12 @@ class LadybugManager:
 
     def initialize(self, db_path: str = "./app_graph_data"):
         if self._db is None:
-            with self._lock:
-                if self._db is None:
-                    self._db = lb.Database(db_path)
-                    self._conn = lb.Connection(self._db)
+            if self._db is None:
+                self._db = lb.Database(db_path)
+                self._conn = lb.Connection(self._db)
 
-                    self._create_tables()
-                    print(f"✅ Centralized LadybugDB initialized at: {db_path}")
+                self._create_tables()
+                print(f"✅ Centralized LadybugDB initialized at: {db_path}")
 
     def _safe_execute(self, query, parameters = None):
         with self._lock:
