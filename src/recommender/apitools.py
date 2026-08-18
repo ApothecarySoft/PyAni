@@ -148,7 +148,12 @@ def fetch_data_for_tag(tag: str, status_callback, callbacks):
 
 
 class NestedProgressCallback:
-    def __init__(self, callback_function: Callable[[int, int], None], layer: int, sub_job_size: int = 1):
+    def __init__(
+        self,
+        callback_function: Callable[[int, int], None],
+        layer: int,
+        sub_job_size: int = 1,
+    ):
         self.callback_function: Callable[[int, int], None] = callback_function
         self.layer: int = layer
         self.sub_job_size: int = sub_job_size

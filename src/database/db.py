@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime
 
 import ladybug as lb
 
@@ -25,9 +26,8 @@ class LadybugManager:
     _instance = None
     _lock = threading.Lock()
 
-    MEDIA_FRESHOLD_DAYS: int = 7
     USER_FRESHOLD_DAYS: int = 1
-    PROPERTY_FRESHOLD_DAYS: int = 30
+    PROPERTY_FRESHOLD_DAYS: int = 90
 
     def __init__(self):
         self._db = None
@@ -58,19 +58,47 @@ class LadybugManager:
     def load_user_list(self, username):
         pass
 
+    def _get_media_freshold_days(self, media_id) -> int:
+        media = self.load_media(media_id)
+        if media is None:
+            return 0
+
+        media_status = media["status"]
+        if media_status in ["HIATUS", "NOT_YET_RELEASED"]:
+            return 7
+
+        media_year = media["start_year"]
+        current_year = datetime.today().year
+        age = current_year - media_year
+
+        freshold = age * 10
+        if media_status == "RELEASING":
+            freshold /= 2
+        return max(min(int(freshold), 90), 1) # ensure freshold is at least 1 and at most 90
+
+    def load_media(self, media_id):
+        query = """
+            MATCH (m:Media {id: $media_id})
+            RETURN n
+            ;
+        """
+        parameters = {"media_id": media_id}
+        return self._execute_get_first_or_default(query, parameters)
+
     def _is_node_fresh(
         self, node_table: str, node_id, freshold: int
     ):  # freshold = freshness threshold
         query = f"""
             MATCH (n:{node_table} {{id: $node_id}})
             RETURN n.last_updated < datetime() - duration({{days: $freshold}}) AS is_expired
+            ;
         """
 
         return self._execute_get_first_or_default(
             query, {"node_id": node_id, "freshold": freshold}, False
         )
 
-    def _execute_get_first_or_default(self, query, parameters, default):
+    def _execute_get_first_or_default(self, query, parameters, default=None):
         result = self._safe_execute(query, parameters).rows_as_dict()
         if result.has_next():
             return result.get_next()
@@ -81,7 +109,9 @@ class LadybugManager:
         return self._is_node_fresh("User", username, self.USER_FRESHOLD_DAYS)
 
     def is_media_fresh(self, media_id):
-        return self._is_node_fresh("Media", media_id, self.MEDIA_FRESHOLD_DAYS)
+        return self._is_node_fresh(
+            "Media", media_id, self._get_media_freshold_days(media_id)
+        )
 
     def is_property_fresh(self, prop_id):
         return self._is_node_fresh("Property", prop_id, self.PROPERTY_FRESHOLD_DAYS)
@@ -93,6 +123,7 @@ class LadybugManager:
             MERGE ({prefix}:{node_table} {{id: {node_id}}})
             ON CREATE SET {set_string}, {prefix}.last_updated = datetime()
             ON MATCH SET {set_string}, {prefix}.last_updated = datetime()
+            ;
         """
         parameters["id"] = node_id
         self._safe_execute(query, parameters)
@@ -109,6 +140,7 @@ class LadybugManager:
             MERGE ({_from})-[{_rel}:{rel_table}]->({_to})
             ON CREATE SET {set_string}
             ON MATCH SET {set_string}
+            ;
         """
         self._safe_execute(query, parameters)
 
@@ -116,6 +148,7 @@ class LadybugManager:
         parameters = {
             "title": get_english_title_or_user_preferred(media["title"]),
             "type": media["type"],
+            "status": media["status"],
             "format": media["format"],
             "mean_score": media["meanScore"],
             "popularity": media["popularity"],
@@ -202,6 +235,7 @@ class LadybugManager:
                 mean_score DOUBLE,
                 last_updated TIMESTAMP
             )
+            ;
         """  ## id is username
         )
         self._safe_execute(
@@ -209,6 +243,7 @@ class LadybugManager:
             CREATE NODE TABLE IF NOT EXISTS Media (
                 id INT64 PRIMARY KEY,
                 title STRING,
+                status STRING,
                 type STRING,
                 format STRING,
                 mean_score INT64,
@@ -217,6 +252,7 @@ class LadybugManager:
                 last_updated TIMESTAMP,
                 cover_url STRING
             )
+            ;
         """
         )
         self._safe_execute(
@@ -227,6 +263,7 @@ class LadybugManager:
                 name STRING,
                 last_updated TIMESTAMP
             )
+            ;
         """
         )
         self._safe_execute(
@@ -236,6 +273,7 @@ class LadybugManager:
                 score INT64,
                 status STRING
             )
+            ;
         """
         )
         self._safe_execute(
@@ -243,7 +281,7 @@ class LadybugManager:
             CREATE REL TABLE IF NOT EXISTS UserProperty (
                 FROM User TO Property,
                 strength DOUBLE
-            )
+            );
         """
         )
         self._safe_execute(
@@ -251,7 +289,7 @@ class LadybugManager:
             CREATE REL TABLE IF NOT EXISTS MediaProperty (
                 FROM Media TO Property,
                 strength DOUBLE
-            )
+            );
         """
         )
         self._safe_execute(
@@ -260,7 +298,7 @@ class LadybugManager:
                 FROM Media TO Media,
                 strength_raw INT64,
                 strength_norm DOUBLE
-            )
+            );
         """
         )
         self._safe_execute(
@@ -268,14 +306,14 @@ class LadybugManager:
             CREATE REL TABLE IF NOT EXISTS Relation (
                 FROM Media TO Media,
                 type STRING
-            )
+            );
         """
         )
         self._safe_execute(
             """
             CREATE REL TABLE IF NOT EXISTS Follows (
                 FROM User TO User
-            )
+            );
         """
         )
 
