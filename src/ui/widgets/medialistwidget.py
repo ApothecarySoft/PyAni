@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from recommender.pythonapi import BaseThread
 from recommender.utils import get_english_title_or_user_preferred
+from ui.widgets.filterwidget import FilterWidget
 from ui.widgets.netimagewidget import NetImageWidget
 
 
@@ -51,6 +52,7 @@ class FetchProgressDialog(QDialog):
         self.fetch_thread.ProgressSignal.connect(self.on_progress_update)
         self.fetch_thread.StatusSignal.connect(self.on_status_update)
         self.fetch_thread.ErrorSignal.connect(self.on_error)
+        self.fetch_thread.CooldownSignal.connect(self.on_cooldown)
         self.fetch_thread.start()
 
     def update_window_title(self):
@@ -80,6 +82,48 @@ class FetchProgressDialog(QDialog):
         error_box.setWindowTitle("Error")
         error_box.exec()
         self.reject()
+
+    @Slot(str)
+    def on_cooldown(self, cooldown_message):
+        cooldown_dialog = CooldownProgressDialog(
+            parent=self, cooldown_message=cooldown_message
+        )
+        self.fetch_thread.CooldownProgressSignal.connect(
+            cooldown_dialog.on_cooldown_progress
+        )
+        cooldown_dialog.exec()
+
+
+class CooldownProgressDialog(QDialog):
+    def __init__(self, parent, cooldown_message):
+        super().__init__(parent=parent)
+
+        self.setWindowTitle("Cooldown")
+
+        self.messageLabel = QLabel(cooldown_message)
+        self.progressBar = QProgressBar()
+        self.progressBar.setMaximum(100)
+        self.progressBar.setValue(0)
+        self.progressBar.setTextVisible(False)
+        self.maximum = None
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.messageLabel)
+        layout.addWidget(self.progressBar)
+        self.setLayout(layout)
+
+    @Slot(int)
+    def on_cooldown_progress(self, seconds):
+        if seconds <= 1:
+            self.accept()
+
+        if self.maximum is None:
+            self.maximum = seconds
+            self.progressBar.setMaximum(seconds)
+            self.progressBar.setFormat("%v / %ms")
+            self.progressBar.setTextVisible(True)
+
+        self.progressBar.setValue(self.maximum - seconds + 1)
 
 
 class PaginatedListWidget(QWidget):
@@ -143,7 +187,8 @@ class _PageWidget(QWidget):
         if 0 <= page_num <= self.page_count - 1:
             self.current_page = page_num
             self.PageSelected.emit(page_num)
-        self.page_entry.setText(str(self.current_page + 1))
+        if self.page_entry:
+            self.page_entry.setText(str(self.current_page + 1))
 
     @Slot(int)
     def on_page_count_changed(self, new_page_count):
@@ -194,19 +239,53 @@ class _ListWidget(QWidget):
         self.make_media_view = make_media_view
 
         self.metadata = None
+        self.current_list = None
         self.main_list = None
         self.items_per_page = 5
         self.list_container = None
+
         layout = QVBoxLayout()
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.filter_widget = FilterWidget(
+            [
+                "tv",
+                "ova",
+                "manga",
+                "tv_short",
+                "movie",
+                "special",
+                "ona",
+                "music",
+                "novel",
+                "one_shot",
+            ]
+        )
+        self.filter_widget.OnToggled.connect(self._filter_list)
+
         layout.addWidget(self.scroll_area)
+        layout.addWidget(self.filter_widget)
+
         self.setLayout(layout)
+
+    def _filter_list(self):
+        if self.main_list is None:
+            return
+
+        self.current_list = [
+            x
+            for x in self.main_list
+            if x["recMedia"]["format"].lower()
+            in [key.lower() for (key, value) in self.filter_widget.get_data().items() if value]
+        ]
+
+        self.PageCountChanged.emit(ceil(len(self.current_list) / self.items_per_page))
 
     @Slot(int)
     def set_page(self, page_num) -> bool:
         print(f"Setting page: {page_num}")
-        if self.main_list is None:
+        if self.current_list is None:
             return False
 
         if self.list_container:
@@ -219,17 +298,18 @@ class _ListWidget(QWidget):
 
         first_item = page_num * self.items_per_page
 
-        for item in self.main_list[first_item : first_item + self.items_per_page]:
+        for item in self.current_list[first_item : first_item + self.items_per_page]:
             item_widget = self.make_media_view(item=item, metadata=self.metadata)
             layout.addWidget(item_widget)
 
         return True
 
-    def set_list(self, main_list, metadata):
+    def set_list(self, main_list: list, metadata):
         print(f"Setting list with {len(main_list)} items")
         self.metadata = metadata
         self.main_list = main_list
-        self.PageCountChanged.emit(ceil(len(main_list) / self.items_per_page))
+        self.current_list = main_list
+        self._filter_list()
 
 
 class BaseMediaViewWidget(QWidget):
