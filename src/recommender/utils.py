@@ -2,6 +2,7 @@ import re
 
 sanitize_pattern = re.compile(r"[^a-zA-Z0-9_-]")
 
+
 def sanitize(string: str):
     return re.sub(sanitize_pattern, "", string)
 

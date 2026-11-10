@@ -61,7 +61,7 @@ class RecThread(BaseThread):
                 status_callback=self.StatusSignal.emit,
                 force_refresh=self.force_refresh,
                 cd_progress_callback=self.CooldownProgressSignal.emit,
-                cd_callback=self.CooldownSignal.emit
+                cd_callback=self.CooldownSignal.emit,
             )
         elif len(self.user_names) == 1:
             if self.user_names[0] == "":
@@ -73,7 +73,7 @@ class RecThread(BaseThread):
                 status_callback=self.StatusSignal.emit,
                 force_refresh=self.force_refresh,
                 cd_progress_callback=self.CooldownProgressSignal.emit,
-                cd_callback=self.CooldownSignal.emit
+                cd_callback=self.CooldownSignal.emit,
             )
         else:
             raise NotEnoughDataError("At least one username is required")
@@ -81,7 +81,13 @@ class RecThread(BaseThread):
 
 
 def _get_watch_party(
-    user_names, use, progress_callback, status_callback, cd_progress_callback, cd_callback, force_refresh=False
+    user_names,
+    use,
+    progress_callback,
+    status_callback,
+    cd_progress_callback,
+    cd_callback,
+    force_refresh=False,
 ):
     sanitized_user_names = sanitize_list(user_names)
 
@@ -103,7 +109,7 @@ def _get_watch_party(
             refresh=force_refresh,
             status_callback=status_callback,
             cd_progress_callback=cd_progress_callback,
-            cd_callback=cd_callback
+            cd_callback=cd_callback,
         )
         user_data[index]["list"] = temp_list
         user_data[index]["origins"] = temp_origins
@@ -119,7 +125,13 @@ def _get_watch_party(
 
 
 def _get_what_to_watch(
-    user_name, use, progress_callback, status_callback, cd_progress_callback, cd_callback, force_refresh=False
+    user_name,
+    use,
+    progress_callback,
+    status_callback,
+    cd_progress_callback,
+    cd_callback,
+    force_refresh=False,
 ):
     sanitized_user_name = sanitize(user_name)
 
@@ -129,7 +141,7 @@ def _get_what_to_watch(
         refresh=force_refresh,
         status_callback=status_callback,
         cd_progress_callback=cd_progress_callback,
-        cd_callback=cd_callback
+        cd_callback=cd_callback,
     )
 
     final_list = [
@@ -170,7 +182,10 @@ class HunterThread(BaseThread):
                 tag_prev_stuff = load_data_from_file(file_name)
 
             tag_current_stuff = fetch_data_for_tag(
-                tag=clean_tag, status_callback=self.StatusSignal.emit, cd_progress_callback=self.CooldownProgressSignal.emit, cd_callback=self.CooldownSignal.emit
+                tag=clean_tag,
+                status_callback=self.StatusSignal.emit,
+                cd_progress_callback=self.CooldownProgressSignal.emit,
+                cd_callback=self.CooldownSignal.emit,
             )
 
             all_current_stuff |= tag_current_stuff
