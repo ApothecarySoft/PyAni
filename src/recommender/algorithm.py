@@ -39,14 +39,14 @@ def generate_joint_list(user_data):
     ]
 
 
-def get_recommendation_list(user_name, use, refresh, status_callback):
+def get_recommendation_list(user_name, use, refresh, status_callback, cd_progress_callback, cd_callback):
     if not user_name:
         return None, None
 
     user_file = latest_valid_cache_file_or_new(item_name=user_name, clean=True)
 
     if refresh or not os.path.exists(user_file):
-        user_list = fetch_data_for_user(user_name, status_callback=status_callback)
+        user_list = fetch_data_for_user(user_name, status_callback=status_callback, cd_progress_callback=cd_progress_callback, cd_callback=cd_callback)
     else:
         user_list = load_data_from_file(user_file)
 
@@ -239,7 +239,6 @@ def _calculate_initial(user_list, mean_score):
                 origins.setdefault(rec_media["id"], {}).setdefault(angle_keys[0], {})[
                     media["id"]
                 ] = user_match["score"]
-
 
             normalized_rating = (
                 rating / (popularity + rec_popularity) * score

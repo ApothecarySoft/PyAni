@@ -38,3 +38,5 @@ data is cached locally for 2 days, though, so subsequent runs are quicker within
 Literally nothing I can do about that. I am not an AniList developer.
 ## I would like to integrate one of your tools into my own app!
 You're free to use bits and pieces of my code including porting my logic to other languages. Please make sure to follow all terms of the GPLv3 license while doing so. Also, while you aren't required to credit me, it would be appreciated!
+## Do you use generative AI?
+I have used it in the past for setting up the github actions and for generating commit messages, but I have since sworn off it. The application itself is AI-free and any further work in this repo will be so as well. I believe in the irreplaceable power of human creation and I hope you all (as fellow anime fans) do as well. On your honor, please do not attempt to merge any genAI code into this repo.
